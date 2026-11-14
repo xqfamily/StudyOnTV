@@ -73,13 +73,22 @@ object Updater {
         val current = currentVersion(ctx)
         val started = System.currentTimeMillis()
         var info: Info? = null
+        val customApi = api(ctx).trim()
+        if (customApi.isEmpty()) {
+            log.put(JSONObject().put("source", "定制版").put("ok", true).put("ms", 0L).put("message", "已锁定家庭定制版，跳过线上版本检查"))
+            Prefs.setUpdateInfo(ctx, "")
+            Prefs.setUpdateCheckedAt(ctx, System.currentTimeMillis())
+            Prefs.setUpdateLog(ctx, JSONObject().put("at", System.currentTimeMillis()).put("items", log).toString())
+            return null to log
+        }
         try {
-            info = Pgyer.info(ctx, current, currentVersionCode(ctx))
-            log.put(JSONObject().put("source", "蒲公英").put("ok", info != null).put("ms", System.currentTimeMillis() - started)
+            val parsed = fetch(customApi)?.let { parse(it, current, "自定义源") }
+            info = parsed?.takeIf { isNewer(it.latest, current) }
+            log.put(JSONObject().put("source", "自定义源").put("ok", true).put("ms", System.currentTimeMillis() - started)
                 .put("message", if (info == null) "当前已是最新版本" else "v" + info.latest))
         } catch (e: Exception) {
-            Diag.error("Update", "Pgyer check failed", e)
-            log.put(JSONObject().put("source", "蒲公英").put("ok", false).put("ms", System.currentTimeMillis() - started)
+            Diag.error("Update", "Custom update check failed", e)
+            log.put(JSONObject().put("source", "自定义源").put("ok", false).put("ms", System.currentTimeMillis() - started)
                 .put("message", e.message?.take(160) ?: e.javaClass.simpleName))
         }
         Prefs.setUpdateInfo(ctx, info?.let { toJson(it).toString() } ?: "")

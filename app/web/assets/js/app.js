@@ -171,17 +171,21 @@
     $('qText').className = 'question' + (qLength > 120 ? ' longer' : qLength > 56 ? ' long' : '');
     window.clearTimeout(autoAudioTimer);
     nativeCall('stopReading');
-    var hasAudioUrl = !!(item.audio && /^https?:\/\//.test(item.audio));
-    var wantAutoRead = !!(state.speech && state.speech.autoRead);
-    if (hasAudioUrl && (item.autoAudio || wantAutoRead)) {
-      if (window.SOTVNative) {
-        autoAudioTimer = window.setTimeout(function () {
-          if (state.round && state.round.question && state.round.question.audio === item.audio) {
-            nativeCall('playAudio', [item.audio]);
-          }
-        }, 180);
-      }
-    } else if (wantAutoRead) {
+    rememberTtsBase(item);
+    var stemUrl = buildStemTtsUrl(item, qTextClean);
+    var audioUrl = (item.audio && /^https?:\/\//.test(item.audio)) ? item.audio : '';
+    var autoQueue = [];
+    if (stemUrl) autoQueue.push(stemUrl);
+    if (audioUrl && audioUrl !== stemUrl) autoQueue.push(audioUrl);
+    var allowAuto = item.autoAudio !== false;
+    if (allowAuto && autoQueue.length) {
+      var expectedId = item.id;
+      autoAudioTimer = window.setTimeout(function () {
+        if (state.round && state.round.question && state.round.question.id === expectedId && !state.feedback) {
+          playUrlQueue(autoQueue);
+        }
+      }, 180);
+    } else if (allowAuto) {
       readQuestionStem(item);
     }
     renderMedia(item);
@@ -249,7 +253,24 @@
   }
   function renderMedia(item) {
     var box = $('qMedia'); box.innerHTML = '';
-    if (item.image && /^(https?:\/\/|data:image\/)/.test(item.image)) { var image = document.createElement('img'); image.src = item.image; image.alt = '题目配图'; image.className = 'question-media-image'; box.appendChild(image); }
+    if (item.image && /^(https?:\/\/|data:image\/)/.test(item.image)) {
+      var image = document.createElement('img');
+      image.src = item.image;
+      image.alt = '题目配图';
+      image.className = 'question-media-image';
+      if ((item.q || '').indexOf('古文字') >= 0 && /^https?:\/\//.test(item.image)) {
+        var wrap = document.createElement('div');
+        wrap.className = 'sotv-evo-wrap';
+        var mask = document.createElement('div');
+        mask.className = 'sotv-evo-mask';
+        mask.textContent = '？';
+        wrap.appendChild(image);
+        wrap.appendChild(mask);
+        box.appendChild(wrap);
+      } else {
+        box.appendChild(image);
+      }
+    }
     if (item.audio && /^https?:\/\//.test(item.audio)) {
       if (window.SOTVNative) { var play = document.createElement('button'); play.className = 'btn btn-ghost focusable'; play.setAttribute('data-action', 'play-audio'); play.textContent = isTv() ? '再听一遍（菜单键）' : '再听一遍'; box.appendChild(play); }
       else { var audio = document.createElement('audio'); audio.src = item.audio; audio.controls = true; audio.className = 'focusable'; audio.preload = 'auto'; if (item.autoAudio) audio.autoplay = true; box.appendChild(audio); }
@@ -315,7 +336,7 @@
       else answer = (result.correctIndices || []).map(function (i) { return String.fromCharCode(65 + i) + '. ' + (item.a || [])[i]; }).join('　');
     }
     box.className = 'feedback show ' + (right ? 'is-right' : 'is-wrong');
-    if (window.SOTV_KID) window.SOTV_KID.playSfx(right ? 'right' : 'wrong');
+    speakFeedbackResult(right, title, item, result, written);
     $('fbIcon').textContent = right ? '✓' : '!';
     $('fbTitle').textContent = title;
     if (window.SOTV_KID) {
@@ -690,22 +711,85 @@
   };
   window.SOTV_UPDATE = function (info) { if (!info || !info.latest) return; window.currentUpdate = info;
     try { if (!info.force && window.localStorage.getItem('sotv_update_dismissed') === info.latest) return; } catch (e) {} $('updateText').textContent = '发现新版本 v' + info.latest; $('updateTip').className = 'update-tip show'; };
+  function rememberTtsBase(q) {
+    if (!q) return;
+    var candidates = [q.stemAudio, q.audio];
+    for (var i = 0; i < candidates.length; i++) {
+      var u = candidates[i];
+      if (u && /^https?:\/\/[^\/]+\/ziyin\/tv\//.test(u)) {
+        var m = u.match(/^(https?:\/\/[^\/]+)/);
+        if (m) { state.ttsBase = m[1] + '/ziyin/tv/tts.mp3'; return; }
+      }
+    }
+  }
+  function buildTtsUrl(text) {
+    if (!state.ttsBase || !text) return '';
+    return state.ttsBase + '?text=' + encodeURIComponent(String(text).slice(0, 260));
+  }
+  function toSpokenText(raw, isMath) {
+    var s = window.SOTV_KID ? window.SOTV_KID.stripTokenText(raw) : String(raw || '');
+    s = s.replace(/[（(]\s*#\d+\s*[)）]/g, '');
+    if (isMath) {
+      s = s.replace(/＋|\+/g, ' 加 ').replace(/－|-/g, ' 减 ').replace(/＝|=/g, ' 等于 ');
+    }
+    return s.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+  }
+  function playUrlQueue(urls) {
+    if (!urls || !urls.length) return;
+    var joined = urls.join('|');
+    if (window.SOTVNative) {
+      nativeCall('playAudio', [joined]);
+    } else {
+      try { new Audio(urls[0]).play(); } catch (e) {}
+    }
+  }
+  function speakFeedbackResult(right, title, item, result, written) {
+    rememberTtsBase(item);
+    window.clearTimeout(autoAudioTimer);
+    nativeCall('stopReading');
+    var isMath = !!(item && item.subject === '数学');
+    var speech = '';
+    if (right) {
+      var praise = (title && title.indexOf('连续答对') >= 0) ? title : '答对啦！';
+      speech = praise;
+    } else {
+      var letterPart = '';
+      if (written) {
+        letterPart = result.answerText ? ('正确答案是 ' + toSpokenText(result.answerText, isMath) + '。') : '';
+      } else {
+        var indices = result.correctIndices || [];
+        var parts = [];
+        for (var i = 0; i < indices.length; i++) {
+          var idx = indices[i];
+          var optVal = (item.a || [])[idx] || '';
+          var optClean = toSpokenText(optVal, isMath);
+          var hasCjkOrDigit = /[\u4e00-\u9fa50-9]/.test(optClean);
+          parts.push('选 ' + String.fromCharCode(65 + idx) + (hasCjkOrDigit ? '，' + optClean : ''));
+        }
+        letterPart = parts.length ? ('正确答案' + parts.join('；') + '。') : '';
+      }
+      var tipClean = result.tip ? toSpokenText(result.tip, isMath) : '';
+      speech = '答错了，' + letterPart + (tipClean ? tipClean : '');
+    }
+    var url = buildTtsUrl(speech);
+    autoAudioTimer = window.setTimeout(function () {
+      if (!state.feedback) return;
+      if (url) playUrlQueue([url]);
+      else nativeCall('readInLanguage', [speech, (item && item.language) || 'zh-CN']);
+    }, 120);
+  }
   function buildStemTtsUrl(q, cleanText) {
     if (!q) return '';
+    rememberTtsBase(q);
     if (q.stemAudio && /^https?:\/\//.test(q.stemAudio)) return q.stemAudio;
-    if (q.audio && /^https?:\/\/[^\/]+\/ziyin\/tv\//.test(q.audio)) {
-      var origin = q.audio.match(/^(https?:\/\/[^\/]+)/)[1];
-      return origin + '/ziyin/tv/tts.mp3?text=' + encodeURIComponent(cleanText);
-    }
-    return '';
+    return buildTtsUrl(toSpokenText(cleanText, q.subject === '数学'));
   }
   function readQuestionStem(q) {
     if (!q) return;
     var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(q.q) : (q.q || '');
     var ttsUrl = buildStemTtsUrl(q, qTextClean);
     if (ttsUrl) {
-      if (window.SOTVNative) nativeCall('playAudio', [ttsUrl]);
-      else { try { new Audio(ttsUrl).play(); } catch (e) {} }
+      playUrlQueue([ttsUrl]);
       return;
     }
     nativeCall('readInLanguage', [qTextClean, q.language || '']);
@@ -713,7 +797,7 @@
   function replayAudio() {
     if (!state.round || !state.round.question) return;
     var q = state.round.question;
-    if (q.audio && /^https?:\/\//.test(q.audio)) nativeCall('playAudio', [q.audio]);
+    if (q.audio && /^https?:\/\//.test(q.audio)) playUrlQueue([q.audio]);
     else readQuestionStem(q);
   }
   window.TV = { move: move, select: function () { activate(); }, replayAudio: replayAudio, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };

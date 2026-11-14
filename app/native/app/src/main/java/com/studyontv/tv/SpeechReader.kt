@@ -121,11 +121,12 @@ object SpeechReader {
         }
     }
 
-    /** 题目音频。老电视的 https / mp3 兼容性差时不再“点了没反应”：记录诊断 + Toast + 回报给前端 */
+    /** 题目音频（支持用 `|` 分隔多个 URL 顺序播报，如“题干语音|读音发音”）。 */
     fun playAudio(context: Context, url: String, notice: ((JSONObject) -> Unit)? = null) {
         val app = context.applicationContext
+        val queue = url.split('|').map { it.trim() }.filter { it.isNotEmpty() }
         // 地址本身不合法：不排队到主线程，直接同步回报（回归测试可断言 status()）
-        if (!(url.startsWith("https://") || url.startsWith("http://"))) {
+        if (queue.isEmpty() || queue.any { !(it.startsWith("https://") || it.startsWith("http://")) }) {
             recordFailure("audio", "unsupported-url", "", "", false, "音频地址不正确，无法播放", notice)
             return
         }
@@ -133,24 +134,41 @@ object SpeechReader {
             stopNow(); val request = generation
             this.notice = notice
             cachedContext = app
-            try {
-                player = MediaPlayer().apply {
-                    setAudioAttributes(attributes); setDataSource(url)
-                    setOnPreparedListener { if (request == generation) start() else release() }
-                    setOnCompletionListener {
-                        release(); if (request == generation) { player = null; notify(true, "audio", "done", "", "", false, "") }
-                    }
-                    setOnErrorListener { _, what, extra ->
-                        release(); if (request == generation) player = null
-                        audioFailed(app, request, "player-error", "音频无法播放（what=$what extra=$extra），请检查网络或改用朗读")
-                        true
-                    }
-                    prepareAsync()
+            playAudioItem(app, queue, 0, request)
+        }
+    }
+
+    private fun playAudioItem(app: Context, queue: List<String>, index: Int, request: Int) {
+        if (request != generation) return
+        if (index >= queue.size) {
+            speaking = false
+            notify(true, "audio", "done", "", "", false, "")
+            return
+        }
+        val currentUrl = queue[index]
+        try {
+            player = MediaPlayer().apply {
+                setAudioAttributes(attributes); setDataSource(currentUrl)
+                setOnPreparedListener {
+                    if (request == generation) { speaking = true; start() } else release()
                 }
-            } catch (e: Exception) {
-                player?.release(); player = null
-                audioFailed(app, request, e.javaClass.simpleName, "音频无法播放（${e.javaClass.simpleName} ${e.message?.take(80).orEmpty()}），请检查网络或改用朗读")
+                setOnCompletionListener {
+                    release()
+                    if (request == generation) {
+                        player = null
+                        playAudioItem(app, queue, index + 1, request)
+                    }
+                }
+                setOnErrorListener { _, what, extra ->
+                    release(); if (request == generation) player = null
+                    audioFailed(app, request, "player-error", "音频无法播放（what=$what extra=$extra），请检查网络或改用朗读")
+                    true
+                }
+                prepareAsync()
             }
+        } catch (e: Exception) {
+            player?.release(); player = null
+            audioFailed(app, request, e.javaClass.simpleName, "音频无法播放（${e.javaClass.simpleName} ${e.message?.take(80).orEmpty()}），请检查网络或改用朗读")
         }
     }
 
