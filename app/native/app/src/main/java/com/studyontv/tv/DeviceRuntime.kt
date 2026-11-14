@@ -13,6 +13,7 @@ object DeviceRuntime {
 
     @Synchronized
     fun ensure(context: Context) {
+        if (!CoreBridge.isCoreProcess(context)) return
         if (server != null) return
         val app = context.applicationContext
         appContext = app

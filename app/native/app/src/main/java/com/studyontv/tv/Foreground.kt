@@ -26,6 +26,8 @@ object Foreground {
     @Volatile private var selfPackage: String? = null
 
     private var ownActivity: java.lang.ref.WeakReference<android.app.Activity>? = null
+    @Volatile private var externalOwnClass: String? = null
+    @Volatile private var externalSelfPackage: String? = null
 
     /**
      * 这些包会以 TYPE_WINDOW_STATE_CHANGED 的形式抢到前台（音量条、通知面板、权限弹窗、下拉面板…），
@@ -39,6 +41,17 @@ object Foreground {
     )
     fun isTransient(pkg: String?): Boolean = pkg != null && transientPackages.contains(pkg)
 
+    fun setExternalOwnActivity(pkg: String, resumed: Boolean, className: String?) {
+        externalSelfPackage = pkg
+        if (resumed) {
+            externalOwnClass = className
+            selfPackage = pkg
+            update(pkg, className)
+        } else {
+            if (externalOwnClass == className || className == null) externalOwnClass = null
+            if (externalOwnClass == null && ownActivity?.get() == null && lastPackage == pkg) lastPackage = null
+        }
+    }
     fun resumeOwn(activity: android.app.Activity) {
         ownActivity = java.lang.ref.WeakReference(activity)
         selfPackage = activity.packageName
@@ -80,6 +93,7 @@ object Foreground {
     /** 类名与包名成对返回，避免用前一个应用的 Activity 判断当前桌面。 */
     fun currentClass(pkg: String): String? {
         ownActivity?.get()?.takeIf { it.packageName == pkg }?.let { return it.javaClass.name }
+        externalOwnClass?.takeIf { externalSelfPackage == pkg }?.let { return it }
         if (lastPackage == pkg && lastClass != null) return lastClass
         if (usageLatest == pkg && usageLatestClass != null) return usageLatestClass
         return if (lastRealPackage == pkg) lastRealClass else null
@@ -87,8 +101,10 @@ object Foreground {
 
     /** 最近一个真正的前台应用（不含系统临时窗口），供「解锁后回到原画面」使用 */
     fun lastReal(): String? = lastRealPackage?.takeUnless { it == selfPackage || (it == lastPackage && isTransient(it)) }
-    fun hasResumedActivity(): Boolean = ownActivity?.get() != null
+    fun hasResumedActivity(): Boolean = ownActivity?.get() != null || externalOwnClass != null
     fun learningActivity(): android.app.Activity? = ownActivity?.get()?.takeIf { it is MainActivity }
+    fun isLearningForeground(): Boolean = ownActivity?.get() is MainActivity ||
+        (externalOwnClass?.let { it.endsWith(".MainActivity") || it.endsWith(".GateActivity") } == true)
 
     private val launcherPackages = setOf(
         "com.android.tv.launcher", "com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx",
@@ -119,6 +135,7 @@ object Foreground {
         ownActivity?.get()?.let {
             if (Build.VERSION.SDK_INT < 24 || !it.isInMultiWindowMode) return null
         }
+        if (externalOwnClass != null) return null
         if (WatchAccessibilityService.connected) {
             val cached = lastPackage
             // 缓存里是系统临时窗口 / 我们自己 / 已经很久没更新时不采信，先用使用情况统计重新确认，

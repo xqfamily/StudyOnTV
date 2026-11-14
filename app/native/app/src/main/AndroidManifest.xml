@@ -39,6 +39,7 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
+            android:process=":gate"
             android:screenOrientation="unspecified" />
 
         <!-- 桌面入口单独做成 alias：家长可以在面板里关掉它来隐藏图标（防止孩子误点 / 卸载），
@@ -63,6 +64,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"
+            android:process=":gate"
             android:screenOrientation="unspecified"
             android:taskAffinity="com.studyontv.tv.gate"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
@@ -124,6 +126,11 @@
             android:authorities="${applicationId}.apk"
             android:exported="false"
             android:grantUriPermissions="true" />
+
+        <provider
+            android:name=".CoreBridgeProvider"
+            android:authorities="${applicationId}.core"
+            android:exported="false" />
 
         <receiver
             android:name=".UninstallGuard"

@@ -107,7 +107,11 @@ object BankAutomation {
                 }
                 report.put("ok", true)
             } catch (_: Exception) { report.put("ok", false).put("message", "自动补题失败，请检查 AI 配置和网络；已有题目保留") }
-            finally { store.set("bank_automation_status", report.toString()); running.set(false) }
+            finally {
+                store.set("bank_automation_status", report.toString())
+                running.set(false)
+                try { NasRelay.pushSoon(DeviceRuntime.appContext) } catch (_: Throwable) { }
+            }
         }
     }
     fun syncSource(store: LocalStore, source: JSONObject): Int {

@@ -719,12 +719,18 @@ class LearningEngine(private val store: LocalStore) {
             } finally { db.endTransaction() }
             return JSONObject().put("pending", true).put("reviewId", id).put("status", status())
         }
-        val expected = if (type == "multiple") question.getJSONArray("correctIndices") else JSONArray().put(question.optInt("k"))
+        val expected = when (type) {
+            "multiple" -> question.getJSONArray("correctIndices")
+            "pinyin_seq" -> JSONArray()
+            else -> JSONArray().put(question.optInt("k"))
+        }
         fun indices(array: JSONArray): Set<Int> = (0 until array.length()).map { array.getInt(it) }.toSet()
         val correct = if (verdict != null) verdict else if (type == "text") {
             val value = normalize(input.optString("text"))
             val accepted = question.getJSONArray("answers")
             value.isNotEmpty() && (0 until accepted.length()).any { normalize(accepted.getString(it)) == value }
+        } else if (type == "pinyin_seq") {
+            input.optBoolean("seqPassed", false)
         } else {
             val selections = input.getJSONArray("selections")
             require(selections.length() > 0 && (0 until selections.length()).all { selections.getInt(it) in 0 until question.getJSONArray("a").length() }) { "请选择有效答案" }
@@ -787,6 +793,7 @@ class LearningEngine(private val store: LocalStore) {
                     .put("correct", round.getInt("correct")).put("passed", passed))
                 store.set("active_round", "")
                 result.put("rewardMinutes", grant / 60000.0)
+                try { NasRelay.pushSoon(DeviceRuntime.appContext) } catch (_: Throwable) { }
             } else {
                 if (mode == "streak" && !baseDone) round.put("extra", false)
                 // 题库被家长删空 / 答题范围没有题目时不能把改动回滚后停在旧题上：作废本轮并通知前端

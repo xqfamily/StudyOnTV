@@ -135,8 +135,8 @@ class GateService : Service() {
         // 一次 tick 内统一口径：什么情况下应该有 Gate（静音与弹窗共用这个判断）
         gateExpectedNow = !free && (gateReason.isNotEmpty() || pendingFeedback || practice)
         val feedbackVisible = !free && hasGate() && pendingFeedback
-        if (!free) Foreground.learningActivity()?.let {
-            if (gateExpectedNow) MediaPause.pause(it) else MediaPause.release(it)
+        if (!free && Foreground.isLearningForeground()) {
+            if (gateExpectedNow) MediaPause.pause(this) else MediaPause.release(this)
         }
         wasUsing = active && !free && reason.isEmpty() && !feedbackVisible
         if (!awake || !monitoring || (!settingsBlocked && (ownForeground || (reason.isEmpty() && !feedbackVisible) || (pkg != null && exempt(pkg, false))))) hideAll()
@@ -170,7 +170,7 @@ class GateService : Service() {
         }
         // 全屏学习页已经在前台 = 已经弹出来了（SDK<26 的老盒子走的就是这条路），
         // 不要再每 2 秒重复拉起 / 重复写日志。
-        if (Foreground.learningActivity() != null) {
+        if (Foreground.isLearningForeground()) {
             if (gateFailures > 0) Diag.info("Gate", "gate 已由全屏学习页展示，重置 $gateFailures 次失败记录")
             gateFailures = 0
             lastGateError = ""
@@ -299,7 +299,7 @@ class GateService : Service() {
     private fun fallbackToActivity(now: Long, gateReason: String) {
         // 自己已经在全屏学习页上时不再重复拉起（否则会每 10 秒重置一次答题）。
         // 但只有在学习页真的在前台时才算，不能因为 hasGate() 之类的残留标记把兜底挡掉。
-        if (Foreground.learningActivity() == null) {
+        if (!Foreground.isLearningForeground()) {
             lastFallbackActivityAt = now
             try {
                 startActivity(Intent(this, GateActivity::class.java)
@@ -321,7 +321,7 @@ class GateService : Service() {
     private fun gateShown(): Boolean = GatePresentation.gateVisible(
         accessibilityGate = WatchAccessibilityService.hasGate(),
         overlayPresenting = overlay.presenting(),
-        learningActivity = Foreground.learningActivity() != null,
+        learningActivity = Foreground.isLearningForeground(),
         gateExpected = gateExpectedNow,
         fallbackPending = lastFallbackActivityAt > 0 && SystemClock.elapsedRealtime() - lastFallbackActivityAt < GatePresentation.FALLBACK_GRACE_MS)
 
@@ -389,6 +389,7 @@ class GateService : Service() {
         override fun run() {
             try { checkAccessibilityLost() } catch (e: Exception) { Diag.error("Gate", "accessibility self-check failed", e) }
             try { BankAutomation.tick(DeviceRuntime.store) } catch (_: Exception) { }
+            try { NasRelay.tick(this@GateService) } catch (_: Exception) { }
             // #110：只有 Gate 真的在屏幕上才持续静音；否则立即解除，不能让「静音了但没弹窗」卡住。
             if (MediaPause.active && !InputSupport.active) {
                 if (muteBackedByVisibleGate()) MediaPause.enforce(this@GateService)
@@ -639,7 +640,7 @@ class GateService : Service() {
             val overlay = service?.overlay
             val accessibilityGate = WatchAccessibilityService.hasGate()
             val overlayPresenting = overlay?.presenting(now) == true
-            val learningActivity = Foreground.learningActivity() != null
+            val learningActivity = Foreground.isLearningForeground()
             val gateExpected = service?.gateExpectedNow == true
             val free = freeState()
             val mute = MediaPause.active

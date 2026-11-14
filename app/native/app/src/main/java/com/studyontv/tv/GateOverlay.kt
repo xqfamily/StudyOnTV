@@ -173,10 +173,8 @@ class GateOverlay(
     private var releaseScheduled = false
 
     fun hide() {
-        if (web == null) return
-        suspend()
-        // hideAll() 每秒都会调用，只在第一次收起时安排销毁，否则计时会被不断推迟
-        if (!releaseScheduled) { releaseScheduled = true; handler.postDelayed(release, 60000) }
+        // 收起悬浮学习页即刻释放 WebView，不再滞留 60 秒占用 80+ MB 内存
+        destroy()
     }
 
     fun destroy() {

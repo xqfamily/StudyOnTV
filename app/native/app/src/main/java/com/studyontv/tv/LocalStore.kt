@@ -582,15 +582,21 @@ class LocalStore(context: Context, databaseName: String = "studyontv.db") : SQLi
         val stem = item.optString("q").trim()
         require(stem.isNotEmpty() && stem.length <= 5000) { "请填写题干" }
         val type = item.optString("type", "single")
-        require(type in listOf("single", "multiple", "boolean", "text", "subjective")) { "不支持此题型" }
+        require(type in listOf("single", "multiple", "boolean", "text", "subjective", "pinyin_seq")) { "不支持此题型" }
         val options = if (type == "boolean") JSONArray(listOf("正确", "错误")) else item.optJSONArray("a") ?: JSONArray()
         if (type != "text" && type != "subjective") {
-            require(options.length() in 2..8) { "需要 2–8 个选项" }
+            val maxOpt = if (type == "pinyin_seq") 12 else 8
+            require(options.length() in 2..maxOpt) { "需要 2–$maxOpt 个选项" }
             for (i in 0 until options.length()) require(options.getString(i).isNotBlank()) { "选项不能为空" }
         }
+        if (type == "pinyin_seq") {
+            val seq = item.optJSONArray("seq") ?: JSONArray()
+            require(seq.length() in 1..20) { "逐字拼读题需要 1–20 个汉字序列" }
+        }
         val indices = if (type == "multiple") item.optJSONArray("correctIndices") ?: JSONArray()
+            else if (type == "pinyin_seq") JSONArray().put(item.optInt("k", 0).coerceIn(0, (options.length() - 1).coerceAtLeast(0)))
             else JSONArray().put(item.optInt("k", -1))
-        if (type != "text" && type != "subjective") {
+        if (type != "text" && type != "subjective" && type != "pinyin_seq") {
             require(indices.length() > 0) { "请选择正确答案" }
             for (i in 0 until indices.length()) require(indices.getInt(i) in 0 until options.length()) { "答案序号超出选项范围" }
         } else if (type == "text") {

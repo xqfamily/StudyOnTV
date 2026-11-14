@@ -160,6 +160,7 @@
     if (window._pendingInput) { state.draft = { nonce: round.nonce, text: window._pendingInput.text || '', drawing: window._pendingInput.drawing || '' }; window._pendingInput = null; }
     else if (!state.draft || state.draft.nonce !== round.nonce) state.draft = { nonce: round.nonce, text: '', drawing: '' };
     state.selected = [];
+    state.seq = item.type === 'pinyin_seq' ? { step: 0, mistakes: 0, done: false } : null;
     if (window.SOTV_KID) window.SOTV_KID.renderText($('qText'), item.q);
     else $('qText').textContent = item.q;
     $('qIndex').textContent = round.mode === 'count' ? round.correct || 0 : round.mode === 'streak' ? round.streak : round.mode === 'practice' ? round.answered + 1 : Math.min(round.answered + 1, round.target);
@@ -176,8 +177,13 @@
     var stemUrl = buildStemTtsUrl(item, qTextClean);
     var audioUrl = (item.audio && /^https?:\/\//.test(item.audio)) ? item.audio : '';
     var autoQueue = [];
-    if (stemUrl) autoQueue.push(stemUrl);
-    if (audioUrl && audioUrl !== stemUrl) autoQueue.push(audioUrl);
+    if (item.type === 'pinyin_seq') {
+      if (audioUrl) autoQueue.push(audioUrl);
+      else if (item.seq && item.seq[0] && item.seq[0].audio) autoQueue.push(item.seq[0].audio);
+    } else {
+      if (stemUrl) autoQueue.push(stemUrl);
+      if (audioUrl && audioUrl !== stemUrl) autoQueue.push(audioUrl);
+    }
     var allowAuto = item.autoAudio !== false;
     if (allowAuto && autoQueue.length) {
       var expectedId = item.id;
@@ -196,8 +202,8 @@
       var plainOpt = window.SOTV_KID ? window.SOTV_KID.stripTokenText(value) : String(value);
       longest = Math.max(longest, plainOpt.length);
     });
-    var isKidCards = !!(item.type !== 'text' && item.type !== 'subjective' && window.SOTV_KID && window.SOTV_KID.isKidCardOptions(item.a));
-    options.className = 'options' + ((item.a || []).length > 4 ? ' many' : '') + (longest > 26 ? ' wordy' : '') + (isKidCards ? ' kid-cards' : '');
+    var isKidCards = item.type === 'pinyin_seq' || !!(item.type !== 'text' && item.type !== 'subjective' && window.SOTV_KID && window.SOTV_KID.isKidCardOptions(item.a));
+    options.className = 'options' + (item.type === 'pinyin_seq' ? ' sotv-seq-options' : '') + ((item.a || []).length > 4 ? ' many' : '') + (longest > 26 ? ' wordy' : '') + (isKidCards ? ' kid-cards' : '');
     if (item.type === 'text' || item.type === 'subjective') {
       var input = document.createElement('textarea'); input.id = 'writtenAnswer'; input.className = 'written-answer';
       input.placeholder = item.type === 'subjective' ? '写下您的思路和答案…' : '请输入答案'; input.maxLength = 10000; input.autocomplete = 'off'; input.rows = 4;
@@ -223,7 +229,8 @@
         button.setAttribute('data-opt', index);
         var letter = document.createElement('span'); letter.className = 'letter'; letter.textContent = String.fromCharCode(65 + index);
         var label = document.createElement('span'); label.className = 'opt-text';
-        if (window.SOTV_KID) window.SOTV_KID.renderText(label, value); else label.textContent = value;
+        var renderVal = (item.type === 'pinyin_seq' && !/\[\[py:/.test(String(value))) ? ('[[py:' + value + ']]') : value;
+        if (window.SOTV_KID) window.SOTV_KID.renderText(label, renderVal); else label.textContent = value;
         button.appendChild(letter); button.appendChild(label); options.appendChild(button);
       });
       if (item.type === 'multiple') addSubmit(options, '确认所选答案');
@@ -252,8 +259,47 @@
     }
     wrap.className = 'quiz-wrap compact-2 scroll';
   }
+  function renderSeqBoard(item) {
+    var box = $('qMedia');
+    var board = box.querySelector('.sotv-seq-board');
+    if (!board) {
+      board = document.createElement('div');
+      board.className = 'sotv-seq-board';
+      box.insertBefore(board, box.firstChild);
+    }
+    board.innerHTML = '';
+    var step = (state.seq && state.seq.step) || 0;
+    var seq = item.seq || [];
+    seq.forEach(function (tok, idx) {
+      var cell = document.createElement('div');
+      var cls = 'sotv-seq-cell';
+      if (idx < step) cls += ' is-done';
+      else if (idx === step && !(state.seq && state.seq.done)) cls += ' is-current';
+      else cls += ' is-pending';
+      cell.className = cls;
+      var pyEl = document.createElement('div');
+      pyEl.className = 'sotv-seq-py';
+      if (idx < step && tok.py) {
+        if (window.SOTV_KID) window.SOTV_KID.renderText(pyEl, '[[py:' + tok.py + ']]');
+        else pyEl.textContent = tok.py;
+      } else if (idx === step && !(state.seq && state.seq.done)) {
+        pyEl.textContent = '？';
+      } else {
+        pyEl.textContent = '';
+      }
+      var hzEl = document.createElement('div');
+      hzEl.className = 'sotv-seq-hz';
+      hzEl.textContent = tok.ch || '';
+      cell.appendChild(pyEl);
+      cell.appendChild(hzEl);
+      board.appendChild(cell);
+    });
+  }
   function renderMedia(item) {
     var box = $('qMedia'); box.innerHTML = '';
+    if (item.type === 'pinyin_seq' && item.seq && item.seq.length) {
+      renderSeqBoard(item);
+    }
     if (item.image && /^(https?:\/\/|data:image\/)/.test(item.image)) {
       var image = document.createElement('img');
       image.src = item.image;
@@ -281,8 +327,65 @@
     var button = document.createElement('button'); button.className = 'btn btn-primary focusable answer-submit';
     button.setAttribute('data-action', 'submit'); button.textContent = value; parent.appendChild(button);
   }
+  function chooseSeq(index) {
+    if (state.busy || !state.round || !state.seq || state.seq.done) return;
+    var item = state.round.question;
+    var step = state.seq.step || 0;
+    var seq = item.seq || [];
+    var tok = seq[step];
+    if (!tok) return;
+    var options = item.a || [];
+    var rawPicked = options[index];
+    var strip = window.SOTV_KID ? window.SOTV_KID.stripTokenText : function (s) { return String(s || ''); };
+    var picked = strip(rawPicked).trim();
+    var target = strip(tok.py).trim();
+    var btn = document.querySelector('#qOptions [data-opt="' + index + '"]');
+    all('#qOptions [data-opt]').forEach(function (el) { el.classList.remove('wrong'); el.classList.remove('seq-hit'); });
+    if (picked && picked === target) {
+      if (btn) {
+        btn.classList.add('seq-hit');
+        window.setTimeout(function () { if (btn) btn.classList.remove('seq-hit'); }, 360);
+      }
+      if (window.SOTV_KID && window.SOTV_KID.playSfx) window.SOTV_KID.playSfx('right');
+      state.seq.step = step + 1;
+      renderSeqBoard(item);
+      if (state.seq.step < seq.length) {
+        var nextTok = seq[state.seq.step];
+        window.clearTimeout(autoAudioTimer);
+        nativeCall('stopReading');
+        if (nextTok.audio && /^https?:\/\//.test(nextTok.audio)) {
+          playUrlQueue([nextTok.audio]);
+        } else {
+          var nextTts = buildTtsUrl('第 ' + (state.seq.step + 1) + ' 个字，' + (nextTok.ch || ''));
+          if (nextTts) playUrlQueue([nextTts]);
+          else nativeCall('readInLanguage', [nextTok.ch || '', 'zh-CN']);
+        }
+      } else {
+        state.seq.done = true;
+        state.selected = [index];
+        window.setTimeout(function () { submit(true); }, 180);
+      }
+    } else {
+      state.seq.mistakes = (state.seq.mistakes || 0) + 1;
+      if (btn) btn.classList.add('wrong');
+      if (window.SOTV_KID && window.SOTV_KID.playSfx) window.SOTV_KID.playSfx('wrong');
+      toast('不对哦，再听一遍「' + (tok.ch || '') + '」');
+      window.clearTimeout(autoAudioTimer);
+      nativeCall('stopReading');
+      var wrongUrl = buildTtsUrl('不是 ' + picked + '，再听一遍');
+      var queue = [];
+      if (wrongUrl) queue.push(wrongUrl);
+      if (tok.audio && /^https?:\/\//.test(tok.audio)) queue.push(tok.audio);
+      if (queue.length) playUrlQueue(queue);
+      else nativeCall('readInLanguage', [tok.ch || '', 'zh-CN']);
+    }
+  }
   function choose(index) {
     if (state.busy || !state.round) return;
+    if (state.round.question.type === 'pinyin_seq') {
+      chooseSeq(index);
+      return;
+    }
     if (state.round.question.type === 'multiple') {
       var pos = state.selected.indexOf(index);
       if (pos < 0) state.selected.push(index); else state.selected.splice(pos, 1);
@@ -291,12 +394,13 @@
       });
     } else { state.selected = [index]; submit(); }
   }
-  function submit() {
+  function submit(fromSeq) {
     if (state.busy || !state.round) return;
     var round = state.round, item = round.question, written = $('writtenAnswer');
-    if (written ? (!written.value.trim() && !state.draft.drawing) : !state.selected.length) { toast('请先填写或选择答案'); return; }
+    var seqPassed = item.type === 'pinyin_seq' && !!(fromSeq && state.seq && state.seq.done);
+    if (item.type !== 'pinyin_seq' && (written ? (!written.value.trim() && !state.draft.drawing) : !state.selected.length)) { toast('请先填写或选择答案'); return; }
     state.busy = true;
-    request('/api/quiz/answer', { roundId: round.id, nonce: round.nonce, selections: state.selected, text: written ? written.value : '', drawing: state.draft ? state.draft.drawing : '' }, function (error, result) {
+    request('/api/quiz/answer', { roundId: round.id, nonce: round.nonce, selections: state.selected.length ? state.selected : [0], seqPassed: seqPassed, text: written ? written.value : '', drawing: state.draft ? state.draft.drawing : '' }, function (error, result) {
       if (error) { state.busy = false; toast(error); return; }
       if (result.pending) { state.busy = false; pending(result.reviewId); return; }
       if (result.blocked) { state.busy = false; lock(result.blocked); return; }
@@ -588,7 +692,7 @@
     if (action === 'permissions' || action === 'password') nativeCall(action === 'permissions' ? 'openPermissions' : 'changePassword');
     if (action === 'clear-drawing') { state.draft.drawing = ''; renderQuestion(); }
     if (action === 'watch-lesson') nativeCall('watchLesson');
-    if (action === 'play-audio' && state.round) nativeCall('playAudio', [state.round.question.audio || '']);
+    if (action === 'play-audio' && state.round) { replayAudio(); }
     if (action === 'read-aloud' && state.round) {
       readQuestionStem(state.round.question);
     }
@@ -751,8 +855,16 @@
     var isMath = !!(item && item.subject === '数学');
     var speech = '';
     if (right) {
-      var praise = (title && title.indexOf('连续答对') >= 0) ? title : '答对啦！';
-      speech = praise;
+      if (item && item.type === 'pinyin_seq') {
+        if (item.completeAudio && /^https?:\/\//.test(item.completeAudio)) {
+          autoAudioTimer = window.setTimeout(function () { if (state.feedback) playUrlQueue([item.completeAudio]); }, 120);
+          return;
+        }
+        speech = '太棒了！你完整拼出了：' + (item.passage || '');
+      } else {
+        var praise = (title && title.indexOf('连续答对') >= 0) ? title : '答对啦！';
+        speech = praise;
+      }
     } else {
       var letterPart = '';
       if (written) {
@@ -798,6 +910,13 @@
   function replayAudio() {
     if (!state.round || !state.round.question) return;
     var q = state.round.question;
+    if (q.type === 'pinyin_seq' && state.seq && !state.seq.done && q.seq && q.seq[state.seq.step]) {
+      var tok = q.seq[state.seq.step];
+      if (tok.audio && /^https?:\/\//.test(tok.audio)) { playUrlQueue([tok.audio]); return; }
+      var u = buildTtsUrl('第 ' + (state.seq.step + 1) + ' 个字，' + (tok.ch || ''));
+      if (u) playUrlQueue([u]); else nativeCall('readInLanguage', [tok.ch || '', 'zh-CN']);
+      return;
+    }
     if (q.audio && /^https?:\/\//.test(q.audio)) playUrlQueue([q.audio]);
     else readQuestionStem(q);
   }

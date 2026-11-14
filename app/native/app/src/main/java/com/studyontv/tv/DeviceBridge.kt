@@ -23,7 +23,7 @@ open class DeviceBridge(protected val activity: Activity, private val connection
     }
 
     @JavascriptInterface
-    fun apiToken(): String = AdminAuth.deviceToken
+    fun apiToken(): String = if (CoreBridge.isCoreProcess(activity)) AdminAuth.deviceToken else CoreBridge.apiToken(activity)
 
     /** 连接页（家长已验证）里的按钮：权限设置 / 修改密码 */
     @JavascriptInterface
@@ -62,12 +62,19 @@ open class DeviceBridge(protected val activity: Activity, private val connection
     @JavascriptInterface
     fun openParent() {
         activity.runOnUiThread {
-            activity.startActivity(Intent(activity, ParentActivity::class.java))
+            activity.startActivity(Intent(activity, ParentActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
     @JavascriptInterface
     fun exitToLauncher() {
+        if (!CoreBridge.isCoreProcess(activity)) {
+            if (!CoreBridge.finishGate(activity, "exitToLauncher").getBoolean("allowed", false)) return
+            activity.runOnUiThread {
+                if (activity is GateActivity) activity.finish() else activity.moveTaskToBack(true)
+            }
+            return
+        }
         val status = DeviceRuntime.learning.status()
         if (status.getString("reason").isNotEmpty() || (status.optLong("remainingSeconds") <= 0 && !status.optBoolean("free"))) return
         activity.runOnUiThread {
@@ -92,6 +99,13 @@ open class DeviceBridge(protected val activity: Activity, private val connection
         // 不检查 connectionAllowed：和学习页 / GateActivity 共用同一个桥，
         // 管控页里 connectionAllowed 是 false，检查了会导致解锁后无法还原画面。
         // 这个调用只会收起管控页并恢复自己记下的受控应用，不暴露任何设备信息。
+        if (!CoreBridge.isCoreProcess(activity)) {
+            CoreBridge.finishGate(activity, "resumePrevious")
+            activity.runOnUiThread {
+                if (activity is GateActivity) activity.finish() else activity.moveTaskToBack(true)
+            }
+            return
+        }
         activity.runOnUiThread {
             GateService.hideGates()
             val target = GateService.rememberedActive()
@@ -117,6 +131,7 @@ open class DeviceBridge(protected val activity: Activity, private val connection
 
     @JavascriptInterface
     fun updateInfo(): String {
+        if (!CoreBridge.isCoreProcess(activity)) return CoreBridge.updateInfo(activity)
         val info = Updater.newerThanCurrent(activity, Updater.cachedInfo(activity)) ?: return ""
         return Updater.toJson(info).put("current", Updater.currentVersion(activity)).toString()
     }
@@ -133,20 +148,34 @@ open class DeviceBridge(protected val activity: Activity, private val connection
     }
 
     @JavascriptInterface
-    fun readAloud(text: String) = SpeechReader.read(activity, text, "", ::speechNotice)
+    fun readAloud(text: String) {
+        if (CoreBridge.isCoreProcess(activity)) SpeechReader.read(activity, text, "", ::speechNotice)
+        else CoreBridge.speech(activity, "read", text = text)
+    }
 
     @JavascriptInterface
-    fun readInLanguage(text: String, language: String) = SpeechReader.read(activity, text, language, ::speechNotice)
+    fun readInLanguage(text: String, language: String) {
+        if (CoreBridge.isCoreProcess(activity)) SpeechReader.read(activity, text, language, ::speechNotice)
+        else CoreBridge.speech(activity, "readLang", text = text, lang = language)
+    }
 
     @JavascriptInterface
-    fun stopReading() = SpeechReader.stop()
+    fun stopReading() {
+        if (CoreBridge.isCoreProcess(activity)) SpeechReader.stop()
+        else CoreBridge.speech(activity, "stop")
+    }
 
     @JavascriptInterface
-    fun playAudio(url: String) = SpeechReader.playAudio(activity, url, ::speechNotice)
+    fun playAudio(url: String) {
+        if (CoreBridge.isCoreProcess(activity)) SpeechReader.playAudio(activity, url, ::speechNotice)
+        else CoreBridge.speech(activity, "play", url = url)
+    }
 
     /** 最近一次朗读 / 音频播放的结果；失败时 reason/message/degraded 有值（#87 不再静默） */
     @JavascriptInterface
-    fun speechStatus(): String = SpeechReader.status().toString()
+    fun speechStatus(): String =
+        if (CoreBridge.isCoreProcess(activity)) SpeechReader.status().toString()
+        else CoreBridge.speech(activity, "status")
 
     /** 失败信息推给网页：页面里装了 window.SOTV_SPEECH_NOTICE 就能显示提示（与 SOTV_INPUT/SOTV_UPDATE 同一约定） */
     private fun speechNotice(payload: JSONObject) {
