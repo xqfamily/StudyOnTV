@@ -78,13 +78,18 @@ class GateService : Service() {
         }
     }
 
+    private val isXiaomiTv by lazy {
+        DeviceBridge.isTv(this) && (android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) ||
+            packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).setPackage("com.mitv.tvhome"), 0) != null)
+    }
+
     private fun checkForeground() {
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastTick
         lastTick = now
         if (wasUsing) DeviceRuntime.learning.consume(elapsed)
         val canOverlay = OverlayAccess.canDraw(this)
-        updateAnchor(canOverlay && DeviceRuntime.store.config().optBoolean("backgroundAnchorEnabled", true))
+        updateAnchor(!isXiaomiTv && canOverlay && DeviceRuntime.store.config().optBoolean("backgroundAnchorEnabled", true))
         if (!canOverlay) overlay.hide()
         val status = DeviceRuntime.learning.status()
         val free = status.optBoolean("free")
@@ -352,7 +357,7 @@ class GateService : Service() {
         // 同一播放器短暂缓冲时保留角标，切换应用、关屏或进入管控页仍立即隐藏。
         val recentlyActive = countdownActiveAt >= 0 && now - countdownActiveAt < 12_000 && pkg == countdownPackage
         val seconds = status.optLong("remainingSeconds") + status.optLong("freeQuotaSeconds")
-        val show = DeviceRuntime.store.config().optBoolean("showCountdown", true) && canOverlay && awake &&
+        val show = !isXiaomiTv && DeviceRuntime.store.config().optBoolean("showCountdown", true) && canOverlay && awake &&
             monitoring && !ownForeground && !settingsBlocked && (pkg == null || !exempt(pkg, false)) &&
             (active || recentlyActive) && !free && status.optString("reason").isEmpty() &&
             status.optJSONObject("override") == null && seconds > 0 && !hasGate()

@@ -75,7 +75,7 @@ object MediaPause {
     }
 
     fun enforce(context: Context) {
-        if (!active) return
+        if (!active || SpeechReader.isProtectingAudio()) return
         val audio = audio(context) ?: return
         try {
             if (!audio.isMusicActive) return

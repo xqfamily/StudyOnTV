@@ -222,12 +222,32 @@ html:not(.tv-device) .options.kid-cards .opt-text {
   background-color: #FFFBF2;
   border-color: rgba(217, 130, 30, 0.45);
 }
+html.tv-device .options.sotv-seq-options {
+  -webkit-justify-content: center;
+  justify-content: center;
+}
 html.tv-device .options.sotv-seq-options .option {
-  padding: 1.4rem 1.8rem;
-  min-height: 7.4rem;
+  width: 22.8%;
+  margin: 0 1% 1.25rem !important;
+  padding: 1.05rem 1.2rem;
+  min-height: 6.2rem;
+  border-radius: 1.3rem;
+}
+html.tv-device .options.sotv-seq-options .option .letter {
+  width: 3.4rem;
+  height: 3.4rem;
+  line-height: 3.4rem;
+  font-size: 1.65rem;
+  margin-right: 1rem;
 }
 html.tv-device .options.sotv-seq-options .option .opt-text {
-  font-size: 3.1rem;
+  font-size: 2.95rem;
+}
+html.tv-device .options.sotv-seq-options .btn[data-action="read-aloud"] {
+  -webkit-flex: 0 0 100%;
+  flex: 0 0 100%;
+  margin-top: 0.4rem;
+  max-width: 18rem;
 }
 .option.seq-hit {
   border-color: #34D399 !important;

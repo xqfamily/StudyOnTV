@@ -648,7 +648,16 @@
     if (list[index]) { list[index].classList.add('focused'); reveal(list[index]); state.focusKey = focusKey(list[index]); }
   }
   function focusKey(el) { return el.getAttribute('data-opt') !== null ? 'opt' + el.getAttribute('data-opt') : el.getAttribute('data-action') || el.id || ''; }
-  function focusDefault() { if (isTv()) setFocus(0); }
+  function focusDefault() {
+    if (!isTv()) return;
+    if (state.round && state.round.question && state.round.question.type === 'pinyin_seq') {
+      var list = focusables();
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].hasAttribute('data-opt')) { setFocus(i); return; }
+      }
+    }
+    setFocus(0);
+  }
   // 返回 true 表示焦点移动了；false 表示已到边缘（原生层据此判断“在最上方连按 ↑”打开家长入口）
   function move(dir) {
     var list = focusables(), index = -1, best = -1, score = 1e12;

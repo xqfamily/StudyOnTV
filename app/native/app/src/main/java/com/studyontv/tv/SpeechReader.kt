@@ -50,6 +50,13 @@ object SpeechReader {
     /** 最近一次朗读 / 播放的结果，供 speechStatus 桥与回归测试断言 */
     @Volatile private var last: JSONObject? = null
     @Volatile private var speaking = false
+    @Volatile var lastActiveAt = 0L
+        private set
+
+    private fun markSpeaking(active: Boolean) {
+        speaking = active
+        lastActiveAt = android.os.SystemClock.elapsedRealtime()
+    }
     /** 桥的回报回调（只在一次朗读 / 播放期间持有，stopNow 释放，避免长期抓住 WebView） */
     private var notice: ((JSONObject) -> Unit)? = null
     private var cachedContext: Context? = null
@@ -141,16 +148,17 @@ object SpeechReader {
     private fun playAudioItem(app: Context, queue: List<String>, index: Int, request: Int) {
         if (request != generation) return
         if (index >= queue.size) {
-            speaking = false
+            markSpeaking(false)
             notify(true, "audio", "done", "", "", false, "")
             return
         }
         val currentUrl = queue[index]
         try {
+            markSpeaking(true)
             player = MediaPlayer().apply {
                 setAudioAttributes(attributes); setDataSource(currentUrl)
                 setOnPreparedListener {
-                    if (request == generation) { speaking = true; start() } else release()
+                    if (request == generation) { markSpeaking(true); start() } else release()
                 }
                 setOnCompletionListener {
                     release()
@@ -180,6 +188,9 @@ object SpeechReader {
         .put("reason", "idle").put("message", "").put("at", 0L)
 
     fun speaking(): Boolean = speaking
+
+    fun isProtectingAudio(): Boolean = speaking ||
+        (lastActiveAt > 0L && android.os.SystemClock.elapsedRealtime() - lastActiveAt < 2500L)
 
     /** 失败信息结构（纯函数，回归测试可直接断言结构；不含题目 / 答案明文） */
     fun failureNotice(mode: String, reason: String, requested: String, language: String, degraded: Boolean, message: String): JSONObject =
@@ -244,7 +255,7 @@ object SpeechReader {
 
     private fun audioFailed(context: Context, request: Int, reason: String, message: String) {
         if (request != generation) return
-        speaking = false
+        markSpeaking(false)
         notify(false, "audio", reason, "", "", false, message)
         try { Toast.makeText(context, "音频无法播放，请检查网络或改用朗读", Toast.LENGTH_SHORT).show() } catch (_: Exception) { }
     }
@@ -252,16 +263,16 @@ object SpeechReader {
     private fun stopNow() {
         generation++; pending = null; system?.stop()
         player?.release(); player = null; audioFile?.delete(); audioFile = null
-        speaking = false; currentText = ""; currentLanguage = ""; lastUtteranceId = ""; retriedDefault = false
+        markSpeaking(false); currentText = ""; currentLanguage = ""; lastUtteranceId = ""; retriedDefault = false
         notice = null
     }
 
     /** UtteranceProgressListener：朗读结束清理状态，合成失败记诊断并用默认语言补读一次 */
     private val progress = object : UtteranceProgressListener() {
-        override fun onStart(utteranceId: String?) { speaking = true }
+        override fun onStart(utteranceId: String?) { markSpeaking(true) }
         override fun onDone(utteranceId: String?) {
             if (utteranceId != lastUtteranceId) return
-            speaking = false; currentText = ""; currentLanguage = ""; lastUtteranceId = ""
+            markSpeaking(false); currentText = ""; currentLanguage = ""; lastUtteranceId = ""
         }
         @Deprecated("Deprecated in Java")
         override fun onError(utteranceId: String?) = onError(utteranceId, TextToSpeech.ERROR)
