@@ -3,6 +3,7 @@ export type Provider={id:string,name:string,baseUrl:string,model:string,visionMo
 // Must stay in sync with GradingService.providers() in the Android app; custom 放最后。
 export const builtinProviders:Provider[]=[
  {id:'deepseek',name:'DeepSeek',baseUrl:'https://api.deepseek.com/v1',model:'deepseek-flash',visionModel:'deepseek-flash',note:'性价比高，支持文字与手写图片（开启“模型支持图像”）',keyUrl:'https://platform.deepseek.com/api_keys'},
+ {id:'gptapi2035000',name:'2035000 中转站 (gpt-6.1-sol)',baseUrl:'https://gptapi.2035000.xyz/v1',model:'gpt-6.1-sol',visionModel:'gpt-6.1-sol',note:'家庭中转站默认预设，填入 API Key 即可使用',keyUrl:''},
  {id:'dashscope',name:'阿里云百炼（通义千问）',baseUrl:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.8-flash',visionModel:'qwen3.8-flash',note:'',keyUrl:'https://bailian.console.aliyun.com/?apiKey=1'},
  {id:'zhipu',name:'智谱 GLM',baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'glm-4.7-flash',visionModel:'glm-4.6v-flash',note:'有免费模型',keyUrl:'https://open.bigmodel.cn/usercenter/apikeys'},
  {id:'moonshot',name:'月之暗面 Kimi',baseUrl:'https://api.moonshot.cn/v1',model:'kimi-k3.1-pro',visionModel:'kimi-k3.1-pro',note:'',keyUrl:'https://platform.moonshot.cn/console/api-keys'},
