@@ -74,8 +74,29 @@ object MediaPause {
         } catch (e: Exception) { android.util.Log.w("StudyOnTV", "Pause media failed", e) }
     }
 
+    /** 自家题目朗读/音频开始播放时临时解除静音并重置重试计数，避免把题库声音锁哑 */
+    fun suspendForSpeech(context: Context) {
+        attempts = 0
+        lastKey = SystemClock.elapsedRealtime()
+        if (!muted) return
+        val audio = audio(context) ?: return
+        try {
+            muted = false
+            setMuted(audio, false)
+            prefs(context).edit().putBoolean("media_muted", false).apply()
+            Diag.info("Audio", "suspend mute for SpeechReader playback")
+        } catch (e: Exception) {
+            android.util.Log.w("StudyOnTV", "Suspend mute for speech failed", e)
+        }
+    }
+
     fun enforce(context: Context) {
-        if (!active || SpeechReader.isProtectingAudio()) return
+        if (!active) return
+        if (SpeechReader.isProtectingAudio()) {
+            attempts = 0
+            lastKey = SystemClock.elapsedRealtime()
+            return
+        }
         val audio = audio(context) ?: return
         try {
             if (!audio.isMusicActive) return

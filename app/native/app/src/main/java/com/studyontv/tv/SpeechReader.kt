@@ -56,6 +56,7 @@ object SpeechReader {
     private fun markSpeaking(active: Boolean) {
         speaking = active
         lastActiveAt = android.os.SystemClock.elapsedRealtime()
+        if (active) cachedContext?.let { MediaPause.suspendForSpeech(it) }
     }
     /** 桥的回报回调（只在一次朗读 / 播放期间持有，stopNow 释放，避免长期抓住 WebView） */
     private var notice: ((JSONObject) -> Unit)? = null
@@ -190,7 +191,7 @@ object SpeechReader {
     fun speaking(): Boolean = speaking
 
     fun isProtectingAudio(): Boolean = speaking ||
-        (lastActiveAt > 0L && android.os.SystemClock.elapsedRealtime() - lastActiveAt < 2500L)
+        (lastActiveAt > 0L && android.os.SystemClock.elapsedRealtime() - lastActiveAt < 5000L)
 
     /** 失败信息结构（纯函数，回归测试可直接断言结构；不含题目 / 答案明文） */
     fun failureNotice(mode: String, reason: String, requested: String, language: String, degraded: Boolean, message: String): JSONObject =
