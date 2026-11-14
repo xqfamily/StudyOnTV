@@ -449,8 +449,12 @@ class LanServer(
         }
 
         
-        if (method != "GET") return json(out, 405, err("method_not_allowed"))
-        serveStatic(path, out, headers["accept-encoding"]?.contains("gzip") == true, headers["if-none-match"])
+        if (method != "GET" && method != "HEAD") return json(out, 405, err("method_not_allowed"))
+        val proxiedRoot = (path == "/" || path == "/index.html") && (
+            headers.containsKey("cf-ray") || headers.containsKey("cf-connecting-ip") || headers.containsKey("x-forwarded-proto")
+        )
+        if (proxiedRoot) return reply(out, 302, null, null, mapOf("Location" to "/admin/"))
+        serveStatic(path, out, headers["accept-encoding"]?.contains("gzip") == true, headers["if-none-match"], headOnly = method == "HEAD")
     }
 
 
@@ -461,7 +465,7 @@ class LanServer(
     // 包含安装时间：同版本号的重新安装 / 调试构建也会让浏览器拿到新页面
     private val etag = "\"" + BuildConfig.VERSION_CODE + "-" + (try { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime } catch (_: Exception) { 0L }) + "\""
 
-    private fun serveStatic(path: String, out: OutputStream, gzip: Boolean, ifNoneMatch: String?) {
+    private fun serveStatic(path: String, out: OutputStream, gzip: Boolean, ifNoneMatch: String?, headOnly: Boolean = false) {
         val (assetPath, contentType) = when {
             path == "/practice" || path == "/practice.html" -> "web/practice.html" to "text/html; charset=utf-8"
             path == "/practice-sw.js" -> "web/practice-sw.js" to "application/javascript; charset=utf-8"
@@ -489,7 +493,7 @@ class LanServer(
                     ByteArrayOutputStream().also { buf -> java.util.zip.GZIPOutputStream(buf).use { it.write(raw) } }.toByteArray()
                 }
             } else assets.open(assetPath).use { it.readBytes() }
-            reply(out, 200, contentType, bytes, extra)
+            reply(out, 200, contentType, if (headOnly) null else bytes, extra)
         } catch (e: Exception) {
             reply(out, 404, "text/plain; charset=utf-8", "404".toByteArray())
         }
@@ -537,7 +541,7 @@ class LanServer(
 
     private fun reason(code: Int) = when (code) {
         200 -> "OK"; 204 -> "No Content"; 304 -> "Not Modified"; 400 -> "Bad Request"; 401 -> "Unauthorized"; 403 -> "Forbidden"
-        301 -> "Moved Permanently"; 404 -> "Not Found"; 405 -> "Method Not Allowed"; else -> "OK"
+        301 -> "Moved Permanently"; 302 -> "Found"; 404 -> "Not Found"; 405 -> "Method Not Allowed"; else -> "OK"
     }
 
     
