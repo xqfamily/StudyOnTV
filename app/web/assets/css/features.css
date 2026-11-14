@@ -15,3 +15,113 @@ html:not(.tv-device) .fb-answer, html:not(.tv-device) .fb-tip { font-size: calc(
  html:not(.tv-device) .question.longer { font-size: calc(26px * var(--learn-scale, 1)); }
  html:not(.tv-device) .opt-text { font-size: calc(24px * var(--learn-scale, 1)); }
 }
+
+/* =====================================================================
+ * 一年级儿童拼音三色分段、规范字形 (ɑ/ɡ)、田字格与注音汉字增强
+ * ===================================================================== */
+.sotv-py {
+  display: inline-block;
+  font-family: "Nunito", "Arial Rounded MT Bold", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+.sotv-py-ini { color: #5CB3FF; }
+.sotv-py-med { color: #4CE0A8; }
+.sotv-py-fin { color: #FF9457; }
+.sotv-py-whole { color: #C09BFF; }
+
+[data-mode="light"] .sotv-py-ini { color: #2472E8; }
+[data-mode="light"] .sotv-py-med { color: #0B9A68; }
+[data-mode="light"] .sotv-py-fin { color: #E25822; }
+[data-mode="light"] .sotv-py-whole { color: #6D46D8; }
+
+.sotv-toned-a { position: relative; display: inline-block; }
+.sotv-tone-mark {
+  position: absolute;
+  left: 50%;
+  top: -0.34em;
+  margin-left: -0.3em;
+  font-size: 0.72em;
+  line-height: 1;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.sotv-tian {
+  display: inline-block;
+  position: relative;
+  width: 1.48em;
+  height: 1.48em;
+  line-height: 1.48em;
+  text-align: center;
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "楷体", serif;
+  font-weight: 400;
+  border: 2px solid rgba(255, 194, 74, 0.45);
+  border-radius: 0.22em;
+  background-color: rgba(255, 255, 255, 0.04);
+  background-image:
+    linear-gradient(to right, transparent 49%, rgba(255, 194, 74, 0.24) 49.5%, rgba(255, 194, 74, 0.24) 50.5%, transparent 51%),
+    linear-gradient(to bottom, transparent 49%, rgba(255, 194, 74, 0.24) 49.5%, rgba(255, 194, 74, 0.24) 50.5%, transparent 51%);
+}
+[data-mode="light"] .sotv-tian {
+  border-color: rgba(217, 130, 30, 0.45);
+  background-color: #FFFBF2;
+  background-image:
+    linear-gradient(to right, transparent 49%, rgba(217, 130, 30, 0.2) 49.5%, rgba(217, 130, 30, 0.2) 50.5%, transparent 51%),
+    linear-gradient(to bottom, transparent 49%, rgba(217, 130, 30, 0.2) 49.5%, rgba(217, 130, 30, 0.2) 50.5%, transparent 51%);
+}
+.sotv-hz-inline { margin: 0 0.16em; vertical-align: middle; font-size: 1.18em; }
+
+.sotv-ruby {
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-align-items: center;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 0.16em;
+  line-height: 1.08;
+}
+.sotv-ruby-py { font-size: 0.56em; margin-bottom: 0.14em; }
+.sotv-ruby-hz { font-size: 1.15em; }
+
+.fb-answer .sotv-ruby-py,
+.fb-tip .sotv-ruby-py { font-size: 0.72em; margin-bottom: 0.08em; }
+.fb-answer .sotv-tian,
+.fb-tip .sotv-tian { font-size: 1.05em; }
+
+/* TV 端拼音 / 注音单字 / 短数字大卡片选项布局 */
+html.tv-device .options.kid-cards .option {
+  padding: 2.2rem 3rem;
+  min-height: 10.6rem;
+}
+html.tv-device .options.kid-cards .option .opt-text {
+  -webkit-flex: 1;
+  flex: 1;
+  text-align: center;
+  font-size: 4.4rem;
+  line-height: 1.15;
+}
+html.tv-device .options.kid-cards .sotv-ruby-py {
+  font-size: 0.52em;
+  margin-bottom: 0.1em;
+}
+html.tv-device .options.kid-cards .sotv-ruby-hz {
+  font-size: 1.05em;
+}
+html.tv-device .quiz-wrap.compact .options.kid-cards .option {
+  padding: 1.7rem 2.4rem;
+  min-height: 8.6rem;
+}
+html.tv-device .quiz-wrap.compact .options.kid-cards .option .opt-text {
+  font-size: 3.6rem;
+}
+
+/* 手机 / 平板大卡片适配 */
+html:not(.tv-device) .options.kid-cards .opt-text {
+  font-size: calc(30px * var(--learn-scale, 1));
+  line-height: 1.25;
+}
+

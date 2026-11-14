@@ -3,7 +3,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var all = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
   var state = { screen: '', round: null, config: {}, learning: {}, busy: false, selected: [], version: 0, awaiting: false, reviewed: false, review: null, draft: null };
-  var toastTimer, nextTimer, taps = 0, lastTap = 0, upTaps = 0, lastUpTap = 0;
+  var toastTimer, nextTimer, autoAudioTimer, taps = 0, lastTap = 0, upTaps = 0, lastUpTap = 0;
   function nativeCall(name, args) {
     var bridge = window.SOTVNative;
     try { if (bridge && typeof bridge[name] === 'function') return bridge[name].apply(bridge, args || []); } catch (e) {}
@@ -160,21 +160,40 @@
     if (window._pendingInput) { state.draft = { nonce: round.nonce, text: window._pendingInput.text || '', drawing: window._pendingInput.drawing || '' }; window._pendingInput = null; }
     else if (!state.draft || state.draft.nonce !== round.nonce) state.draft = { nonce: round.nonce, text: '', drawing: '' };
     state.selected = [];
-    $('qText').textContent = item.q;
+    if (window.SOTV_KID) window.SOTV_KID.renderText($('qText'), item.q);
+    else $('qText').textContent = item.q;
     $('qIndex').textContent = round.mode === 'count' ? round.correct || 0 : round.mode === 'streak' ? round.streak : round.mode === 'practice' ? round.answered + 1 : Math.min(round.answered + 1, round.target);
     $('qTotal').textContent = round.mode === 'practice' ? '题' : '/ ' + round.target;
     $('qMode').textContent = (round.extra ? '加练任务' : round.mode === 'streak' ? '连续答对' : round.mode === 'count' ? '答对指定题数' : round.mode === 'practice' ? '自由练习' : '本组任务') + ' · ' + new Array((item.difficulty || 2) + 1).join('★');
     $('qPool').textContent = round.extraPool > 0 ? '加练池还剩 ' + round.extraPool + ' 题' : '';
     $('qDots').textContent = round.mode === 'streak' ? '连续答对 ' + round.streak + ' 题' : '';
-    var qLength = (item.q || '').length;
+    var qLength = (window.SOTV_KID ? window.SOTV_KID.stripTokenText(item.q) : (item.q || '')).length;
     $('qText').className = 'question' + (qLength > 120 ? ' longer' : qLength > 56 ? ' long' : '');
+    window.clearTimeout(autoAudioTimer);
     nativeCall('stopReading');
-    if (state.speech && state.speech.autoRead) nativeCall('readInLanguage', [item.q, item.language || '']);
+    var hasAudioUrl = !!(item.audio && /^https?:\/\//.test(item.audio));
+    var wantAutoRead = !!(state.speech && state.speech.autoRead);
+    if (hasAudioUrl && (item.autoAudio || wantAutoRead)) {
+      if (window.SOTVNative) {
+        autoAudioTimer = window.setTimeout(function () {
+          if (state.round && state.round.question && state.round.question.audio === item.audio) {
+            nativeCall('playAudio', [item.audio]);
+          }
+        }, 180);
+      }
+    } else if (wantAutoRead) {
+      var readText = window.SOTV_KID ? window.SOTV_KID.stripTokenText(item.q) : item.q;
+      nativeCall('readInLanguage', [readText, item.language || '']);
+    }
     renderMedia(item);
     var options = $('qOptions'); options.innerHTML = '';
     var longest = 0;
-    (item.a || []).forEach(function (value) { longest = Math.max(longest, String(value).length); });
-    options.className = 'options' + ((item.a || []).length > 4 ? ' many' : '') + (longest > 26 ? ' wordy' : '');
+    (item.a || []).forEach(function (value) {
+      var plainOpt = window.SOTV_KID ? window.SOTV_KID.stripTokenText(value) : String(value);
+      longest = Math.max(longest, plainOpt.length);
+    });
+    var isKidCards = !!(item.type !== 'text' && item.type !== 'subjective' && window.SOTV_KID && window.SOTV_KID.isKidCardOptions(item.a));
+    options.className = 'options' + ((item.a || []).length > 4 ? ' many' : '') + (longest > 26 ? ' wordy' : '') + (isKidCards ? ' kid-cards' : '');
     if (item.type === 'text' || item.type === 'subjective') {
       var input = document.createElement('textarea'); input.id = 'writtenAnswer'; input.className = 'written-answer';
       input.placeholder = item.type === 'subjective' ? '写下您的思路和答案…' : '请输入答案'; input.maxLength = 10000; input.autocomplete = 'off'; input.rows = 4;
@@ -199,7 +218,8 @@
         var button = document.createElement('button'); button.className = 'option focusable';
         button.setAttribute('data-opt', index);
         var letter = document.createElement('span'); letter.className = 'letter'; letter.textContent = String.fromCharCode(65 + index);
-        var label = document.createElement('span'); label.className = 'opt-text'; label.textContent = value;
+        var label = document.createElement('span'); label.className = 'opt-text';
+        if (window.SOTV_KID) window.SOTV_KID.renderText(label, value); else label.textContent = value;
         button.appendChild(letter); button.appendChild(label); options.appendChild(button);
       });
       if (item.type === 'multiple') addSubmit(options, '确认所选答案');
@@ -232,8 +252,8 @@
     var box = $('qMedia'); box.innerHTML = '';
     if (item.image && /^(https?:\/\/|data:image\/)/.test(item.image)) { var image = document.createElement('img'); image.src = item.image; image.alt = '题目配图'; image.className = 'question-media-image'; box.appendChild(image); }
     if (item.audio && /^https?:\/\//.test(item.audio)) {
-      if (window.SOTVNative) { var play = document.createElement('button'); play.className = 'btn btn-ghost focusable'; play.setAttribute('data-action', 'play-audio'); play.textContent = '播放题目音频'; box.appendChild(play); }
-      else { var audio = document.createElement('audio'); audio.src = item.audio; audio.controls = true; audio.className = 'focusable'; audio.preload = 'none'; box.appendChild(audio); }
+      if (window.SOTVNative) { var play = document.createElement('button'); play.className = 'btn btn-ghost focusable'; play.setAttribute('data-action', 'play-audio'); play.textContent = isTv() ? '再听一遍（菜单键）' : '再听一遍'; box.appendChild(play); }
+      else { var audio = document.createElement('audio'); audio.src = item.audio; audio.controls = true; audio.className = 'focusable'; audio.preload = 'auto'; if (item.autoAudio) audio.autoplay = true; box.appendChild(audio); }
     }
   }
   function addSubmit(parent, value) {
@@ -296,10 +316,16 @@
       else answer = (result.correctIndices || []).map(function (i) { return String.fromCharCode(65 + i) + '. ' + (item.a || [])[i]; }).join('　');
     }
     box.className = 'feedback show ' + (right ? 'is-right' : 'is-wrong');
+    if (window.SOTV_KID) window.SOTV_KID.playSfx(right ? 'right' : 'wrong');
     $('fbIcon').textContent = right ? '✓' : '!';
     $('fbTitle').textContent = title;
-    $('fbAnswer').textContent = answer ? '正确答案：' + answer : '';
-    $('fbTip').textContent = result.tip ? '解析：' + result.tip : '';
+    if (window.SOTV_KID) {
+      window.SOTV_KID.renderText($('fbAnswer'), answer ? '正确答案：' + answer : '');
+      window.SOTV_KID.renderText($('fbTip'), result.tip ? '解析：' + result.tip : '');
+    } else {
+      $('fbAnswer').textContent = answer ? '正确答案：' + answer : '';
+      $('fbTip').textContent = result.tip ? '解析：' + result.tip : '';
+    }
     var go = $('fbNext');
     state.feedbackUntil = Date.now() + ((result.status && result.status.feedbackSeconds) || 0) * 1000;
     go.textContent = result.finished ? '查看结果' : '继续';
@@ -311,7 +337,7 @@
     var list = focusables(); for (var i = 0; i < list.length; i++) if (list[i] === go) { setFocus(i); break; }
     if (!isTv()) go.focus();
   }
-  function hideFeedback() { $('qFeedback').className = 'feedback'; state.feedback = null; }
+  function hideFeedback() { window.clearTimeout(autoAudioTimer); $('qFeedback').className = 'feedback'; state.feedback = null; }
   function updateFeedbackClock() {
     if (!state.feedback) return;
     var seconds = Math.max(0, Math.ceil(((state.feedbackUntil || 0) - Date.now()) / 1000)), go = $('fbNext');
@@ -542,7 +568,11 @@
     if (action === 'clear-drawing') { state.draft.drawing = ''; renderQuestion(); }
     if (action === 'watch-lesson') nativeCall('watchLesson');
     if (action === 'play-audio' && state.round) nativeCall('playAudio', [state.round.question.audio || '']);
-    if (action === 'read-aloud') nativeCall('readInLanguage', [state.round ? state.round.question.q : '', state.round ? state.round.question.language || '' : '']);
+    if (action === 'read-aloud') {
+      var qTextRaw = state.round ? state.round.question.q : '';
+      var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(qTextRaw) : qTextRaw;
+      nativeCall('readInLanguage', [qTextClean, state.round ? state.round.question.language || '' : '']);
+    }
     if (action === 'retry') start();
     if (action === 'start-as-child' && !state.busy) {
       var kidId = el.getAttribute('data-child');
@@ -663,7 +693,16 @@
   };
   window.SOTV_UPDATE = function (info) { if (!info || !info.latest) return; window.currentUpdate = info;
     try { if (!info.force && window.localStorage.getItem('sotv_update_dismissed') === info.latest) return; } catch (e) {} $('updateText').textContent = '发现新版本 v' + info.latest; $('updateTip').className = 'update-tip show'; };
-  window.TV = { move: move, select: function () { activate(); }, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };
+  function replayAudio() {
+    if (!state.round || !state.round.question) return;
+    var q = state.round.question;
+    if (q.audio && /^https?:\/\//.test(q.audio)) nativeCall('playAudio', [q.audio]);
+    else {
+      var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(q.q) : q.q;
+      nativeCall('readInLanguage', [qTextClean, q.language || '']);
+    }
+  }
+  window.TV = { move: move, select: function () { activate(); }, replayAudio: replayAudio, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };
   window.SOTV_RESUME = function () { if (document.readyState === 'complete' && !state.busy && state.screen !== 'pair') route(); };
   window.addEventListener('hashchange', route);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

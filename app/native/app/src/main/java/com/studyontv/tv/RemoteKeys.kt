@@ -24,12 +24,13 @@ class RemoteKeys(private val openParent: () -> Unit) {
             KeyEvent.KEYCODE_DPAD_UP -> "move('up')"
             KeyEvent.KEYCODE_DPAD_DOWN -> "move('down')"
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> "select()"
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY -> "replayAudio()"
             KeyEvent.KEYCODE_BACK -> "back()"
             else -> return false
         }
         if (event.action != KeyEvent.ACTION_DOWN) return true
-        // 长按 OK / 返回不重复触发（多选题长按会来回勾选、提交按钮会重复提交）
-        if (event.repeatCount > 0 && (js == "select()" || js == "back()")) return true
+        // 长按 OK / 返回 / 重听不重复触发（多选题长按会来回勾选、提交按钮会重复提交）
+        if (event.repeatCount > 0 && (js == "select()" || js == "back()" || js == "replayAudio()")) return true
         if (code != KeyEvent.KEYCODE_DPAD_UP && event.repeatCount == 0) upCount = 0
         if (web == null) {
             if (code == KeyEvent.KEYCODE_DPAD_UP) countUp(event)
