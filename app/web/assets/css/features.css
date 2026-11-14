@@ -59,14 +59,23 @@ html:not(.tv-device) .fb-answer, html:not(.tv-device) .fb-tip { font-size: calc(
 [data-mode="light"] .sotv-py-fin { color: #E25822; }
 [data-mode="light"] .sotv-py-whole { color: #6D46D8; }
 
+.sotv-py-group {
+  display: inline-block;
+  white-space: nowrap;
+}
+.sotv-py-gap {
+  display: inline-block;
+  width: 0.48em;
+}
 .sotv-toned-a { position: relative; display: inline-block; }
 .sotv-tone-mark {
   position: absolute;
-  left: 0;
-  width: 100%;
-  top: -0.38em;
-  margin-left: 0;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  top: -0.44em;
   text-align: center;
+  white-space: nowrap;
   font-size: 0.72em;
   line-height: 1;
   font-weight: 900;

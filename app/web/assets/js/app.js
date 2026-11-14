@@ -178,8 +178,16 @@
     var audioUrl = (item.audio && /^https?:\/\//.test(item.audio)) ? item.audio : '';
     var autoQueue = [];
     if (item.type === 'pinyin_seq') {
-      if (audioUrl) autoQueue.push(audioUrl);
-      else if (item.seq && item.seq[0] && item.seq[0].audio) autoQueue.push(item.seq[0].audio);
+      var step0 = seqStepAudioUrls(item, 0, 2);
+      if (stemUrl) {
+        autoQueue.push(stemUrl);
+        autoQueue = autoQueue.concat(step0.urls);
+      } else if (audioUrl) {
+        autoQueue.push(audioUrl);
+        if (step0.urls.length) autoQueue.push(step0.urls[0]);
+      } else {
+        autoQueue = step0.urls;
+      }
     } else {
       if (stemUrl) autoQueue.push(stemUrl);
       if (audioUrl && audioUrl !== stemUrl) autoQueue.push(audioUrl);
@@ -318,9 +326,8 @@
         box.appendChild(image);
       }
     }
-    if (item.audio && /^https?:\/\//.test(item.audio)) {
-      if (window.SOTVNative) { var play = document.createElement('button'); play.className = 'btn btn-ghost focusable'; play.setAttribute('data-action', 'play-audio'); play.textContent = isTv() ? '再听一遍（菜单键）' : '再听一遍'; box.appendChild(play); }
-      else { var audio = document.createElement('audio'); audio.src = item.audio; audio.controls = true; audio.className = 'focusable'; audio.preload = 'auto'; if (item.autoAudio) audio.autoplay = true; box.appendChild(audio); }
+    if (item.audio && /^https?:\/\//.test(item.audio) && !window.SOTVNative) {
+      var audio = document.createElement('audio'); audio.src = item.audio; audio.controls = true; audio.className = 'focusable'; audio.preload = 'auto'; if (item.autoAudio) audio.autoplay = true; box.appendChild(audio);
     }
   }
   function addSubmit(parent, value) {
@@ -350,16 +357,15 @@
       state.seq.step = step + 1;
       renderSeqBoard(item);
       if (state.seq.step < seq.length) {
-        var nextTok = seq[state.seq.step];
+        var nextStep = state.seq.step;
+        var nextInfo = seqStepAudioUrls(item, nextStep, 2);
+        var expectRoundId = item.id;
         window.clearTimeout(autoAudioTimer);
-        nativeCall('stopReading');
-        if (nextTok.audio && /^https?:\/\//.test(nextTok.audio)) {
-          playUrlQueue([nextTok.audio]);
-        } else {
-          var nextTts = buildTtsUrl('第 ' + (state.seq.step + 1) + ' 个字，' + (nextTok.ch || ''));
-          if (nextTts) playUrlQueue([nextTts]);
-          else nativeCall('readInLanguage', [nextTok.ch || '', 'zh-CN']);
-        }
+        autoAudioTimer = window.setTimeout(function () {
+          if (!state.round || !state.round.question || state.round.question.id !== expectRoundId || state.feedback) return;
+          if (nextInfo.urls.length) playUrlQueue(nextInfo.urls);
+          else if (nextInfo.ch) nativeCall('readInLanguage', [nextInfo.ch + '，' + nextInfo.ch, 'zh-CN']);
+        }, 220);
       } else {
         state.seq.done = true;
         state.selected = [index];
@@ -370,14 +376,19 @@
       if (btn) btn.classList.add('wrong');
       if (window.SOTV_KID && window.SOTV_KID.playSfx) window.SOTV_KID.playSfx('wrong');
       toast('不对哦，再听一遍「' + (tok.ch || '') + '」');
+      var curStep = state.seq.step;
+      var curInfo = seqStepAudioUrls(item, curStep, 2);
+      var expectErrId = item.id;
       window.clearTimeout(autoAudioTimer);
-      nativeCall('stopReading');
-      var wrongUrl = buildTtsUrl('不是 ' + picked + '，再听一遍');
-      var queue = [];
-      if (wrongUrl) queue.push(wrongUrl);
-      if (tok.audio && /^https?:\/\//.test(tok.audio)) queue.push(tok.audio);
-      if (queue.length) playUrlQueue(queue);
-      else nativeCall('readInLanguage', [tok.ch || '', 'zh-CN']);
+      autoAudioTimer = window.setTimeout(function () {
+        if (!state.round || !state.round.question || state.round.question.id !== expectErrId || state.feedback) return;
+        var wrongUrl = buildTtsUrl('不是 ' + picked + '，再听一遍');
+        var queue = [];
+        if (wrongUrl) queue.push(wrongUrl);
+        queue = queue.concat(curInfo.urls);
+        if (queue.length) playUrlQueue(queue);
+        else if (curInfo.ch) nativeCall('readInLanguage', [curInfo.ch + '，' + curInfo.ch, 'zh-CN']);
+      }, 220);
     }
   }
   function choose(index) {
@@ -900,6 +911,21 @@
       else nativeCall('readInLanguage', [speech, (item && item.language) || 'zh-CN']);
     }, 120);
   }
+  function seqStepAudioUrls(q, step, repeat) {
+    if (!q || !q.seq || !q.seq[step]) return { urls: [], ch: '' };
+    rememberTtsBase(q);
+    var tok = q.seq[step];
+    var ch = tok.ch || '';
+    var u = (tok.audio && /^https?:\/\//.test(tok.audio))
+      ? tok.audio
+      : buildTtsUrl('第 ' + (step + 1) + ' 个字，' + ch);
+    var urls = [];
+    var n = Math.max(1, repeat || 1);
+    if (u) {
+      for (var i = 0; i < n; i++) urls.push(u);
+    }
+    return { urls: urls, ch: ch };
+  }
   function buildStemTtsUrl(q, cleanText) {
     if (!q) return '';
     rememberTtsBase(q);
@@ -910,24 +936,33 @@
     if (!q) return;
     var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(q.q) : (q.q || '');
     var ttsUrl = buildStemTtsUrl(q, qTextClean);
-    if (ttsUrl) {
-      playUrlQueue([ttsUrl]);
+    if (q.type === 'pinyin_seq') {
+      if (state.seq && !state.seq.done && q.seq && q.seq[state.seq.step]) {
+        var stepInfo = seqStepAudioUrls(q, state.seq.step, 2);
+        var seqQueue = [];
+        if (ttsUrl) seqQueue.push(ttsUrl);
+        seqQueue = seqQueue.concat(stepInfo.urls);
+        if (seqQueue.length) { playUrlQueue(seqQueue); return; }
+        nativeCall('readInLanguage', [qTextClean + '。' + stepInfo.ch + '，' + stepInfo.ch, q.language || 'zh-CN']);
+        return;
+      }
+      if (q.completeAudio && /^https?:\/\//.test(q.completeAudio)) {
+        playUrlQueue([q.completeAudio]);
+        return;
+      }
+    }
+    var urls = [];
+    if (ttsUrl) urls.push(ttsUrl);
+    if (q.audio && /^https?:\/\//.test(q.audio) && q.audio !== ttsUrl) urls.push(q.audio);
+    if (urls.length) {
+      playUrlQueue(urls);
       return;
     }
     nativeCall('readInLanguage', [qTextClean, q.language || '']);
   }
   function replayAudio() {
     if (!state.round || !state.round.question) return;
-    var q = state.round.question;
-    if (q.type === 'pinyin_seq' && state.seq && !state.seq.done && q.seq && q.seq[state.seq.step]) {
-      var tok = q.seq[state.seq.step];
-      if (tok.audio && /^https?:\/\//.test(tok.audio)) { playUrlQueue([tok.audio]); return; }
-      var u = buildTtsUrl('第 ' + (state.seq.step + 1) + ' 个字，' + (tok.ch || ''));
-      if (u) playUrlQueue([u]); else nativeCall('readInLanguage', [tok.ch || '', 'zh-CN']);
-      return;
-    }
-    if (q.audio && /^https?:\/\//.test(q.audio)) playUrlQueue([q.audio]);
-    else readQuestionStem(q);
+    readQuestionStem(state.round.question);
   }
   window.TV = { move: move, select: function () { activate(); }, replayAudio: replayAudio, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };
   window.SOTV_RESUME = function () { if (document.readyState === 'complete' && !state.busy && state.screen !== 'pair') route(); };

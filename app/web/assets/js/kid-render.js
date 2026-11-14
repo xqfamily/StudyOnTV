@@ -94,7 +94,7 @@
     return false;
   }
 
-  function renderPinyinHtml(raw) {
+  function renderSinglePinyinHtml(raw) {
     var p = parsePinyin(raw);
     if (!p.base) return esc(raw);
     var tonedStr = toToned(p);
@@ -126,6 +126,18 @@
       html += '<span class="sotv-py-fin">' + glyphHtml(finToned) + '</span>';
     }
     return '<span class="sotv-py">' + html + '</span>';
+  }
+
+  function renderPinyinHtml(raw) {
+    var trimmed = String(raw || '').replace(/^\s+|\s+$/g, '');
+    if (!trimmed) return '';
+    var parts = trimmed.split(/\s+/);
+    if (parts.length <= 1) return renderSinglePinyinHtml(trimmed);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i]) out.push(renderSinglePinyinHtml(parts[i]));
+    }
+    return '<span class="sotv-py-group">' + out.join('<span class="sotv-py-gap" aria-hidden="true"></span>') + '</span>';
   }
 
   function hasRichTokens(text) {

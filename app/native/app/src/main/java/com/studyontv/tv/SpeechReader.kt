@@ -165,7 +165,13 @@ object SpeechReader {
                     release()
                     if (request == generation) {
                         player = null
-                        playAudioItem(app, queue, index + 1, request)
+                        val nextIdx = index + 1
+                        if (nextIdx >= queue.size) {
+                            playAudioItem(app, queue, nextIdx, request)
+                        } else {
+                            val gapMs = if (queue[index] == queue[nextIdx]) 380L else 220L
+                            main.postDelayed({ playAudioItem(app, queue, nextIdx, request) }, gapMs)
+                        }
                     }
                 }
                 setOnErrorListener { _, what, extra ->
