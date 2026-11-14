@@ -12,7 +12,7 @@ import java.net.URL
  * 不再访问 GitHub 或第三方镜像；蒲公英失败时由更新页引导用户手动下载。
  */
 object Updater {
-    const val OWNER_REPO = "chadyi/StudyOnTV"
+    const val OWNER_REPO = "xqfamily/StudyOnTV"
     private const val GITHUB_API = "https://api.github.com/repos/$OWNER_REPO/releases/latest"
     private const val MANIFEST_PATH = "$OWNER_REPO/main/update.json"
     private val MANIFEST_URLS = listOf(

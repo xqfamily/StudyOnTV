@@ -182,8 +182,7 @@
         }, 180);
       }
     } else if (wantAutoRead) {
-      var readText = window.SOTV_KID ? window.SOTV_KID.stripTokenText(item.q) : item.q;
-      nativeCall('readInLanguage', [readText, item.language || '']);
+      readQuestionStem(item);
     }
     renderMedia(item);
     var options = $('qOptions'); options.innerHTML = '';
@@ -568,10 +567,8 @@
     if (action === 'clear-drawing') { state.draft.drawing = ''; renderQuestion(); }
     if (action === 'watch-lesson') nativeCall('watchLesson');
     if (action === 'play-audio' && state.round) nativeCall('playAudio', [state.round.question.audio || '']);
-    if (action === 'read-aloud') {
-      var qTextRaw = state.round ? state.round.question.q : '';
-      var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(qTextRaw) : qTextRaw;
-      nativeCall('readInLanguage', [qTextClean, state.round ? state.round.question.language || '' : '']);
+    if (action === 'read-aloud' && state.round) {
+      readQuestionStem(state.round.question);
     }
     if (action === 'retry') start();
     if (action === 'start-as-child' && !state.busy) {
@@ -693,14 +690,31 @@
   };
   window.SOTV_UPDATE = function (info) { if (!info || !info.latest) return; window.currentUpdate = info;
     try { if (!info.force && window.localStorage.getItem('sotv_update_dismissed') === info.latest) return; } catch (e) {} $('updateText').textContent = '发现新版本 v' + info.latest; $('updateTip').className = 'update-tip show'; };
+  function buildStemTtsUrl(q, cleanText) {
+    if (!q) return '';
+    if (q.stemAudio && /^https?:\/\//.test(q.stemAudio)) return q.stemAudio;
+    if (q.audio && /^https?:\/\/[^\/]+\/ziyin\/tv\//.test(q.audio)) {
+      var origin = q.audio.match(/^(https?:\/\/[^\/]+)/)[1];
+      return origin + '/ziyin/tv/tts.mp3?text=' + encodeURIComponent(cleanText);
+    }
+    return '';
+  }
+  function readQuestionStem(q) {
+    if (!q) return;
+    var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(q.q) : (q.q || '');
+    var ttsUrl = buildStemTtsUrl(q, qTextClean);
+    if (ttsUrl) {
+      if (window.SOTVNative) nativeCall('playAudio', [ttsUrl]);
+      else { try { new Audio(ttsUrl).play(); } catch (e) {} }
+      return;
+    }
+    nativeCall('readInLanguage', [qTextClean, q.language || '']);
+  }
   function replayAudio() {
     if (!state.round || !state.round.question) return;
     var q = state.round.question;
     if (q.audio && /^https?:\/\//.test(q.audio)) nativeCall('playAudio', [q.audio]);
-    else {
-      var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(q.q) : q.q;
-      nativeCall('readInLanguage', [qTextClean, q.language || '']);
-    }
+    else readQuestionStem(q);
   }
   window.TV = { move: move, select: function () { activate(); }, replayAudio: replayAudio, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };
   window.SOTV_RESUME = function () { if (document.readyState === 'complete' && !state.busy && state.screen !== 'pair') route(); };
