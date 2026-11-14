@@ -167,7 +167,8 @@
     $('qMode').textContent = (round.extra ? '加练任务' : round.mode === 'streak' ? '连续答对' : round.mode === 'count' ? '答对指定题数' : round.mode === 'practice' ? '自由练习' : '本组任务') + ' · ' + new Array((item.difficulty || 2) + 1).join('★');
     $('qPool').textContent = round.extraPool > 0 ? '加练池还剩 ' + round.extraPool + ' 题' : '';
     $('qDots').textContent = round.mode === 'streak' ? '连续答对 ' + round.streak + ' 题' : '';
-    var qLength = (window.SOTV_KID ? window.SOTV_KID.stripTokenText(item.q) : (item.q || '')).length;
+    var qTextClean = window.SOTV_KID ? window.SOTV_KID.stripTokenText(item.q) : (item.q || '');
+    var qLength = qTextClean.length;
     $('qText').className = 'question' + (qLength > 120 ? ' longer' : qLength > 56 ? ' long' : '');
     window.clearTimeout(autoAudioTimer);
     nativeCall('stopReading');
