@@ -105,7 +105,13 @@ class GateService : Service() {
         val power = getSystemService(POWER_SERVICE) as PowerManager
         val locked = (getSystemService(KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         val awake = power.isInteractive && !locked && screenOn && displayOn()
-        if (lastAwake != awake) { DeviceRuntime.learning.awake(awake); lastAwake = awake }
+        if (lastAwake != awake) {
+            DeviceRuntime.learning.awake(awake)
+            if (awake && lastAwake == false) {
+                try { CloudTunnelClient.checkBootPoem(this) } catch (_: Throwable) { }
+            }
+            lastAwake = awake
+        }
         val monitoring = canOverlay || WatchAccessibilityService.connected || Foreground.hasUsageAccess(this)
         // #17 次要项：新装机一个监控权限都没有时，不能一声不响（连续 5 分钟才提示一次）
         trackCapability(monitoring, now)
@@ -394,7 +400,10 @@ class GateService : Service() {
         override fun run() {
             try { checkAccessibilityLost() } catch (e: Exception) { Diag.error("Gate", "accessibility self-check failed", e) }
             try { BankAutomation.tick(DeviceRuntime.store) } catch (_: Exception) { }
-            try { NasRelay.tick(this@GateService) } catch (_: Exception) { }
+            try {
+                if (Prefs.isCloudPaired(this@GateService)) CloudTunnelClient.tick(this@GateService)
+                else NasRelay.tick(this@GateService)
+            } catch (_: Exception) { }
             // #110：只有 Gate 真的在屏幕上才持续静音；否则立即解除，不能让「静音了但没弹窗」卡住。
             if (MediaPause.active && !InputSupport.active) {
                 if (muteBackedByVisibleGate()) MediaPause.enforce(this@GateService)
@@ -556,7 +565,7 @@ class GateService : Service() {
         if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(channelId, "使用时间管理", NotificationManager.IMPORTANCE_LOW))
         val pi = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, channelId) else Notification.Builder(this)
-        val notification = builder.setContentTitle("题了个题 · 使用时间管理中").setContentText("点击打开学习任务")
+        val notification = builder.setContentTitle("学一会 · 使用时间管理中").setContentText("点击打开学习任务")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentIntent(pi).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(1001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         else startForeground(1001, notification)

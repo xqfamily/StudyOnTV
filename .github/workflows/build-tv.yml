@@ -2,7 +2,7 @@ name: Build StudyOnTV APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feat/cloud-tv-platform ]
   workflow_dispatch:
 
 jobs:

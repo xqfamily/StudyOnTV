@@ -264,3 +264,107 @@ html.tv-device .options.sotv-seq-options .btn[data-action="read-aloud"] {
 }
 
 
+
+/* =================== 教学黑板 / 渐隐背诵 / 分步讲解 / 听写机 / 云端配对 =================== */
+.cloud-toast-banner {
+  position: fixed; top: 68px; right: 28px; z-index: 95; max-width: 460px;
+  padding: 12px 18px; border-radius: 14px; background: rgba(30, 41, 59, 0.95);
+  border: 2px solid #f59e0b; color: #fef3c7; font-size: 20px; font-weight: 700;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); display: none;
+}
+.cloud-toast-banner.show { display: block; }
+
+.lesson-wrap {
+  width: 100%; max-width: 1280px; margin: 0 auto; padding: 12px 24px 18px;
+  display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column;
+  min-height: calc(100vh - 88px);
+}
+.lesson-head { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; margin-bottom: 10px; }
+.lesson-pills { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-items: center; align-items: center; }
+.lesson-pill {
+  padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; margin-right: 8px;
+  background: rgba(255, 255, 255, 0.08); color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.lesson-pill.accent { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); }
+.lesson-title { text-align: center; font-size: 40px; font-weight: 900; color: #f8fafc; margin: 2px 0; }
+.lesson-subtitle { text-align: center; font-size: 20px; color: #94a3b8; margin-bottom: 14px; }
+.lesson-body {
+  -webkit-flex: 1; flex: 1; display: -webkit-flex; display: flex; -webkit-align-items: flex-start; align-items: flex-start; -webkit-justify-content: center; justify-content: center;
+}
+.lesson-main { -webkit-flex: 1; flex: 1; max-width: 920px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-align-items: center; align-items: center; }
+.lesson-side {
+  width: 220px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1); margin-left: 20px;
+}
+.lesson-side-item { padding: 8px 10px; border-radius: 10px; font-size: 16px; color: #94a3b8; margin-bottom: 6px; }
+.lesson-side-item.active { background: rgba(245, 158, 11, 0.18); color: #fbbf24; font-weight: 700; }
+
+.lesson-line-card {
+  width: 100%; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  padding: 10px 18px; border-radius: 16px; border: 2px solid transparent; margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.lesson-line-card.active {
+  border-color: #f59e0b; background: rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+.lesson-line-card .sotv-ruby-hz { font-size: 46px; }
+.lesson-line-card .sotv-ruby-py .sotv-py { font-size: 20px; }
+.lesson-line-card .sotv-ruby-py.py-hidden { visibility: hidden; }
+.lesson-line-card .sotv-tian { min-width: 66px; padding: 4px 6px; }
+.lesson-char-hidden { color: rgba(248, 250, 252, 0.14) !important; background: rgba(255, 255, 255, 0.04); }
+
+.lesson-note-box {
+  width: 100%; max-width: 820px; padding: 20px 24px; border-radius: 18px;
+  background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+  font-size: 24px; line-height: 1.7; color: #e0f2fe;
+}
+.recite-bar { display: -webkit-flex; display: flex; -webkit-justify-content: center; justify-content: center; margin-bottom: 10px; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+.recite-step {
+  padding: 4px 12px; border-radius: 999px; font-size: 13px; color: #94a3b8; margin: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.recite-step.active { background: #f59e0b; color: #111827; border-color: #f59e0b; font-weight: 800; }
+
+.math-split { display: -webkit-flex; display: flex; width: 100%; -webkit-align-items: stretch; align-items: stretch; -webkit-justify-content: center; justify-content: center; }
+.math-tenframe-box {
+  width: 440px; padding: 20px; border-radius: 18px; background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12); text-align: center; margin-right: 24px;
+}
+.math-steps-box { -webkit-flex: 1; flex: 1; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+.math-step-row {
+  padding: 16px 20px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.1); margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.04); font-size: 24px; display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center;
+}
+.math-step-row.done { border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.12); color: #d1fae5; }
+.math-step-row.current { border-color: #f59e0b; background: rgba(245, 158, 11, 0.14); color: #fef3c7; }
+.math-step-row.locked { opacity: 0.45; }
+
+.dict-stage { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; margin: 26px 0; }
+.dict-slots { display: -webkit-flex; display: flex; margin: 0 30px; }
+.dict-slot {
+  width: 96px; height: 96px; border-radius: 14px; border: 2px solid #f59e0b; margin: 0 6px;
+  background: rgba(245, 158, 11, 0.06); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  font-size: 48px; color: #f8fafc;
+}
+.dict-ring {
+  width: 112px; height: 112px; border-radius: 50%; border: 6px solid #f59e0b;
+  display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; font-size: 44px; font-weight: 900; color: #f8fafc;
+}
+.dict-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-justify-content: center; justify-content: center; margin: 14px 0; }
+.dict-word-card {
+  padding: 12px 18px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); margin: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.lesson-foot {
+  margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center;
+}
+
+.cloud-pair-digits { display: -webkit-flex; display: flex; margin: 12px 0; }
+.cloud-pair-digit {
+  width: 48px; height: 58px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); margin-right: 8px;
+  border: 2px solid rgba(245, 158, 11, 0.6); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  font-size: 30px; font-weight: 900; color: #fef3c7;
+}
+.cloud-pair-status { font-size: 16px; color: #fbbf24; margin: 6px 0 12px; font-weight: 700; }

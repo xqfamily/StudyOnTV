@@ -312,6 +312,14 @@ export default function RulesPage({state,sessionId}:{state:any,sessionId:number}
        <FieldContent><FieldTitle>通过一组解锁 · 分钟</FieldTitle></FieldContent>
        {number('sessionMinutes',1,120)}
       </Field>}
+      <Field orientation="responsive" className="py-4">
+       <FieldContent><FieldTitle>推屏奖励单次上限 · 分钟</FieldTitle><FieldDescription className="text-xs leading-5">0 表示关闭远程推屏小测奖励（默认关闭，保护使用额度）</FieldDescription></FieldContent>
+       {number('pushRewardMaxOnce',0,60)}
+      </Field>
+      <Field orientation="responsive" className="py-4">
+       <FieldContent><FieldTitle>推屏奖励每日上限 · 分钟</FieldTitle><FieldDescription className="text-xs leading-5">全天通过云端随堂小测最多获得的额外看电视分钟数</FieldDescription></FieldContent>
+       {number('pushRewardMaxDaily',0,240)}
+      </Field>
      </FieldGroup>
     </FieldSet>
    </Panel>

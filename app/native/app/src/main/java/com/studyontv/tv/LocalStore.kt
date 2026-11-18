@@ -322,6 +322,8 @@ class LocalStore(context: Context, databaseName: String = "studyontv.db") : SQLi
             // #122：部分固件（海信 VIDAA）会把普通应用的全屏悬浮窗压在硬件视频层下面，
             // 家长可强制改走全屏学习页；默认仍由 GateService 按可见性自动判断。
             .put("forceFullscreenGate", false)
+            .put("pushRewardMaxOnce", 0).put("pushRewardMaxDaily", 0)
+            .put("quietStart", "21:00").put("quietEnd", "07:00")
             .put("learningContent", "quiz").put("educationalVideos", JSONArray()).put("videoMinutes", 1)
             .put("quizBanks", JSONArray())
             .put("quizSubjects", JSONArray()).put("quizLevels", JSONArray())

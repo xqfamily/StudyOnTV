@@ -104,12 +104,43 @@ class LanServer(
         }
     }
 
+    data class TunnelResponse(val status: Int, val headers: Map<String, String>, val body: ByteArray)
+
+    fun dispatchTunnel(method: String, path: String, query: String, headers: Map<String, String>, body: String): TunnelResponse {
+        val baos = ByteArrayOutputStream()
+        val safeHeaders = headers.filterKeys { it != "x-device-token" }.toMutableMap()
+        safeHeaders["x-sotv-tunnel"] = "1"
+        route(method.uppercase(), path, query, safeHeaders, body, baos, local = false)
+        val raw = baos.toByteArray()
+        val sep = findHeaderEnd(raw)
+        if (sep < 0) return TunnelResponse(500, mapOf("content-type" to "application/json"), raw)
+        val headStr = String(raw, 0, sep, Charsets.UTF_8)
+        val bodyBytes = raw.copyOfRange(sep + 4, raw.size)
+        val lines = headStr.split("\r\n")
+        val status = lines.firstOrNull()?.split(" ")?.getOrNull(1)?.toIntOrNull() ?: 200
+        val outHeaders = LinkedHashMap<String, String>()
+        for (i in 1 until lines.size) {
+            val idx = lines[i].indexOf(':')
+            if (idx > 0) outHeaders[lines[i].substring(0, idx).trim().lowercase()] = lines[i].substring(idx + 1).trim()
+        }
+        return TunnelResponse(status, outHeaders, bodyBytes)
+    }
+
+    private fun findHeaderEnd(raw: ByteArray): Int {
+        for (i in 0..raw.size - 4) {
+            if (raw[i] == '\r'.code.toByte() && raw[i + 1] == '\n'.code.toByte() &&
+                raw[i + 2] == '\r'.code.toByte() && raw[i + 3] == '\n'.code.toByte()) return i
+        }
+        return -1
+    }
+
     private fun route(method: String, path: String, query: String, headers: Map<String, String>, body: String, out: OutputStream, local: Boolean) {
         val q = if (query.isEmpty()) emptyMap() else query.split("&").associate {
             val kv = it.split("=", limit = 2)
             kv[0] to java.net.URLDecoder.decode(kv.getOrElse(1) { "" }, "UTF-8")
         }
-        val deviceAccess = local && headers["x-device-token"] == AdminAuth.deviceToken
+        val isTunnel = headers["x-sotv-tunnel"] == "1"
+        val deviceAccess = !isTunnel && local && headers["x-device-token"] == AdminAuth.deviceToken
         val token = headers["authorization"]?.removePrefix("Bearer ") ?: headers["x-admin-token"]
         if (path == "/api/auth" && method == "POST") {
             val input = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
@@ -142,9 +173,10 @@ class LanServer(
         if (method != "GET") Diag.info("HTTP", "$method $path")
         try {
         when {
+            path == "/api/health" && method == "GET" -> return json(out, 200, JSONObject().put("ok", true))
             path == "/api/hello" && method == "GET" -> {
                 val info = JSONObject()
-                    .put("app", "StudyOnTV")
+                    .put("app", "学一会")
                     .put("version", BuildConfig.VERSION_NAME)
                     .put("name", Prefs.deviceName(context))
                     .put("ip", localIp() ?: "")
@@ -442,10 +474,121 @@ class LanServer(
                 store.logEvent(type, payload)
                 return json(out, 200, JSONObject().put("ok", true))
             }
+            path == "/api/lesson/current" && method == "GET" -> {
+                if (!deviceAccess) return json(out, 403, err("device_only"))
+                val data = LessonStore.current(context)
+                return json(out, 200, data)
+            }
+            path == "/api/lesson/exit" && method == "POST" -> {
+                if (!deviceAccess) return json(out, 403, err("device_only"))
+                val payload = try { JSONObject(body) } catch (_: Exception) { JSONObject() }
+                val studySec = payload.optInt("seconds", 0).coerceIn(0, 7200)
+                if (studySec > 0) {
+                    store.logEvent("study", JSONObject().put("seconds", studySec).put("lessonId", payload.optString("lessonId")))
+                }
+                return json(out, 200, JSONObject().put("ok", true))
+            }
+            path == "/api/push-quiz/current" && method == "GET" -> {
+                if (!deviceAccess) return json(out, 403, err("device_only"))
+                return json(out, 200, LessonStore.activePushQuiz() ?: JSONObject())
+            }
+            path == "/api/push-quiz/finish" && method == "POST" -> {
+                if (!deviceAccess) return json(out, 403, err("device_only"))
+                val payload = try { JSONObject(body) } catch (_: Exception) { JSONObject() }
+                val active = LessonStore.activePushQuiz() ?: JSONObject()
+                val reqMin = if (active.optString("quizMode") == "reward") active.optInt("rewardMinutes", 0) else 0
+                val granted = LessonStore.settlePushQuizReward(
+                    context, store, DeviceRuntime.learning,
+                    payload.optInt("correctFirstTry", 0),
+                    payload.optInt("total", 0),
+                    reqMin
+                )
+                LessonStore.setActivePushQuiz(null)
+                return json(out, 200, JSONObject().put("ok", true).put("grantedMinutes", granted))
+            }
+            path == "/api/pair/state" && method == "GET" -> {
+                return json(out, 200, JSONObject()
+                    .put("paired", Prefs.isCloudPaired(context))
+                    .put("origin", Prefs.cloudOrigin(context))
+                    .put("familyKey", Prefs.familyKey(context))
+                    .put("familyName", Prefs.familyName(context))
+                    .put("deviceId", Prefs.ensureDeviceId(context))
+                    .put("deviceName", Prefs.deviceName(context)))
+            }
+            path == "/api/pair/start" && method == "POST" -> {
+                val input = try { JSONObject(body) } catch (_: Exception) { JSONObject() }
+                val origin = input.optString("origin").trim().trimEnd('/').ifEmpty { Prefs.cloudOrigin(context) }
+                require(origin.startsWith("http://") || origin.startsWith("https://")) { "请提供有效的云端服务地址" }
+                Prefs.setCloudOrigin(context, origin)
+                val audioUrl = input.optString("audioOrigin").trim().trimEnd('/')
+                if (audioUrl.startsWith("http://") || audioUrl.startsWith("https://")) Prefs.setAudioBaseUrl(context, audioUrl)
+                val did = Prefs.ensureDeviceId(context)
+                val sh = Prefs.deviceSecretHash(context)
+                val reqBody = JSONObject().put("deviceId", did).put("secretHash", sh).put("deviceName", Prefs.deviceName(context))
+                val conn = (java.net.URL("$origin/ziyin/tv/pair/start").openConnection() as java.net.HttpURLConnection).apply {
+                    if (this is javax.net.ssl.HttpsURLConnection) sslSocketFactory = CloudCerts.sslSocketFactory(context)
+                    requestMethod = "POST"; connectTimeout = 6000; readTimeout = 8000; doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                }
+                val text = try {
+                    conn.outputStream.use { it.write(reqBody.toString().toByteArray(Charsets.UTF_8)) }
+                    (if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream).bufferedReader(Charsets.UTF_8).use { it.readText() }
+                } finally { conn.disconnect() }
+                val data = JSONObject(text).optJSONObject("data") ?: JSONObject()
+                val code = data.optString("code")
+                require(code.isNotEmpty()) { JSONObject(text).optString("msg", "生成配对码失败") }
+                return json(out, 200, data.put("pairUrl", "$origin/tv-pair?c=$code"))
+            }
+            path == "/api/pair/status" && method == "GET" -> {
+                val code = q["code"].orEmpty()
+                val origin = Prefs.cloudOrigin(context)
+                val did = Prefs.ensureDeviceId(context)
+                val sec = Prefs.ensureDeviceSecret(context)
+                val conn = (java.net.URL("$origin/ziyin/tv/pair/status?code=$code&deviceId=$did").openConnection() as java.net.HttpURLConnection).apply {
+                    if (this is javax.net.ssl.HttpsURLConnection) sslSocketFactory = CloudCerts.sslSocketFactory(context)
+                    requestMethod = "GET"; connectTimeout = 6000; readTimeout = 8000
+                    setRequestProperty("Authorization", "Bearer $sec")
+                }
+                val text = try {
+                    conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                } finally { conn.disconnect() }
+                val data = JSONObject(text).optJSONObject("data") ?: JSONObject()
+                if (data.optString("status") == "bound") {
+                    val fk = data.optString("familyKey")
+                    val fn = data.optString("familyName")
+                    val bt = data.optString("bankToken")
+                    Prefs.setFamilyKey(context, fk)
+                    Prefs.setFamilyName(context, fn)
+                    Prefs.setBankToken(context, bt)
+                    val audioOrigin = Prefs.audioBaseUrl(context)
+                    val bankUrl = "$audioOrigin/ziyin/tv/bank.json?token=$bt"
+                    val curSettings = BankAutomation.settings(store)
+                    val sources = JSONArray().put(JSONObject().put("name", "云端同步·$fn").put("url", bankUrl).put("enabled", true))
+                    curSettings.put("sources", sources)
+                    BankAutomation.save(store, curSettings)
+                    BankAutomation.start(store)
+                    CloudTunnelClient.restart(context)
+                }
+                return json(out, 200, data)
+            }
+            path == "/api/pair/unbind" && method == "POST" -> {
+                CloudTunnelClient.stop()
+                Prefs.clearCloudPairing(context)
+                return json(out, 200, JSONObject().put("ok", true))
+            }
         }
         } catch (e: Exception) {
             Diag.error("HTTP", "$method $path failed", e)
             return json(out, 400, JSONObject().put("error", "bad_request").put("message", e.message ?: "请求格式错误"))
+        }
+
+        if (method == "GET" && path.startsWith("/lesson-audio/")) {
+            val fileName = path.removePrefix("/lesson-audio/").replace(Regex("[^a-zA-Z0-9._-]"), "")
+            val f = java.io.File(LessonStore.audioDir(context), fileName)
+            if (fileName.isNotEmpty() && f.isFile) {
+                return reply(out, 200, "audio/mpeg", f.readBytes(), mapOf("Cache-Control" to "public, max-age=86400"))
+            }
+            return reply(out, 404, "text/plain", "404".toByteArray())
         }
 
         

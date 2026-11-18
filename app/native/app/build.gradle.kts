@@ -91,6 +91,7 @@ val syncWebAssets by tasks.registering(Sync::class) {
     from(File(repoRoot, "shared/katex")) { into("web/assets/vendor/katex") }
     from(File(repoRoot, "shared/math.js")) { into("web/assets/js") }
     from(File(repoRoot, "data/holidays")) { into("holidays") }
+    preserve { include("certs/**") }
     into(layout.projectDirectory.dir("src/main/assets"))
 }
 

@@ -347,7 +347,7 @@ export default function DevicePanel({
   const displayToken = issued || '<集成令牌>';
   const stateCurl = `curl "${integrationBase}/api/state" -H "Authorization: Bearer ${displayToken}"`;
   const unlockCurl = `curl -X POST "${integrationBase}/api/remote" -H "Authorization: Bearer ${displayToken}" -H "Content-Type: application/json" -d '{"action":"unlock","minutes":30}'`;
-  const haYaml = `sensor:\n  - platform: rest\n    name: 题了个题\n    resource: ${integrationBase}/api/state\n    headers:\n      Authorization: Bearer <集成令牌>\n    value_template: "{{ value_json.learning.remainingSeconds }}"\n    json_attributes:\n      - learning\n      - today\n    scan_interval: 60`;
+  const haYaml = `sensor:\n  - platform: rest\n    name: 学一会\n    resource: ${integrationBase}/api/state\n    headers:\n      Authorization: Bearer <集成令牌>\n    value_template: "{{ value_json.learning.remainingSeconds }}"\n    json_attributes:\n      - learning\n      - today\n    scan_interval: 60`;
   const updateInfo = update.data;
 
   return (

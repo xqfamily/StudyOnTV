@@ -26,11 +26,17 @@ open class MainActivity : Activity() {
     private var speechReceiverRegistered = false
     private val speechReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val payload = intent?.getStringExtra(CoreBridge.EXTRA_PAYLOAD) ?: return
+            val act = intent?.action ?: return
+            val payload = intent.getStringExtra(CoreBridge.EXTRA_PAYLOAD) ?: "{}"
             if (::web.isInitialized && !webReleased) {
                 web.post {
                     try {
-                        web.evaluateJavascript("window.SOTV_SPEECH_NOTICE&&SOTV_SPEECH_NOTICE($payload)", null)
+                        when (act) {
+                            CoreBridge.ACTION_SPEECH_NOTICE -> web.evaluateJavascript("window.SOTV_SPEECH_NOTICE&&SOTV_SPEECH_NOTICE($payload)", null)
+                            CloudTunnelClient.ACTION_LESSON_CTRL -> web.evaluateJavascript("window.SOTV_CLOUD_EVENT&&SOTV_CLOUD_EVENT('lesson_ctrl',$payload)", null)
+                            CloudTunnelClient.ACTION_TOAST -> web.evaluateJavascript("window.SOTV_CLOUD_EVENT&&SOTV_CLOUD_EVENT('toast',$payload)", null)
+                            CloudTunnelClient.ACTION_LESSON_UPDATED -> web.evaluateJavascript("window.SOTV_CLOUD_EVENT&&SOTV_CLOUD_EVENT('lesson_updated',$payload)", null)
+                        }
                     } catch (_: Throwable) { }
                 }
             }
@@ -73,7 +79,12 @@ open class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (DeviceBridge.isTv(this)) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         val reason = intent.getStringExtra("reason")
-        page = if (this is GateActivity && reason != null && reason !in listOf("timeup", "feedback")) "lock?reason=$reason" else "quiz"
+        val targetPage = intent.getStringExtra("page")
+        page = when {
+            !targetPage.isNullOrBlank() -> targetPage
+            this is GateActivity && reason != null && reason !in listOf("timeup", "feedback") -> "lock?reason=$reason"
+            else -> "quiz"
+        }
         createWeb()
     }
 
@@ -175,7 +186,12 @@ open class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val reason = intent?.getStringExtra("reason")
-        page = if (this is GateActivity && reason != null && reason !in listOf("timeup", "feedback")) "lock?reason=$reason" else "quiz"
+        val targetPage = intent?.getStringExtra("page")
+        page = when {
+            !targetPage.isNullOrBlank() -> targetPage
+            this is GateActivity && reason != null && reason !in listOf("timeup", "feedback") -> "lock?reason=$reason"
+            else -> "quiz"
+        }
         if (::web.isInitialized && !webReleased) {
             web.loadUrl(baseUrl + "#/$page")
             web.evaluateJavascript("window.SOTV_RESUME&&SOTV_RESUME()", null)
@@ -185,8 +201,13 @@ open class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         cancelScheduledKill()
-        if (!isCore && !speechReceiverRegistered) {
-            val filter = IntentFilter(CoreBridge.ACTION_SPEECH_NOTICE)
+        if (!speechReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(CoreBridge.ACTION_SPEECH_NOTICE)
+                addAction(CloudTunnelClient.ACTION_LESSON_CTRL)
+                addAction(CloudTunnelClient.ACTION_TOAST)
+                addAction(CloudTunnelClient.ACTION_LESSON_UPDATED)
+            }
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(speechReceiver, filter, RECEIVER_NOT_EXPORTED)
             } else {
@@ -213,10 +234,10 @@ open class MainActivity : Activity() {
     override fun onPause() {
         if (!isCore) {
             CoreBridge.reportActivity(this, false, javaClass.name)
-            if (speechReceiverRegistered) {
-                try { unregisterReceiver(speechReceiver) } catch (_: Throwable) { }
-                speechReceiverRegistered = false
-            }
+        }
+        if (speechReceiverRegistered) {
+            try { unregisterReceiver(speechReceiver) } catch (_: Throwable) { }
+            speechReceiverRegistered = false
         }
         super.onPause()
     }

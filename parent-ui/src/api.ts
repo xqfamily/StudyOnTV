@@ -1,9 +1,13 @@
 let previewMode=false;
 export function enablePreview(){previewMode=true;}
-let host=location.host;
+const tunnelMatch=typeof location!=='undefined'?location.pathname.match(/^(\/tv-admin\/d\/([^/]+))/):null;
+const tunnelPrefix=tunnelMatch?tunnelMatch[1]:'';
+const tunnelDeviceId=tunnelMatch?decodeURIComponent(tunnelMatch[2]):'';
+export function getTunnelDeviceId(){return tunnelDeviceId;}
+let host=location.host+tunnelPrefix;
 let scheme:'http'|'https'=location.protocol==='https:'?'https':'http';
 let token='';
-export function setHost(value:string){const raw=value.trim();if(/^https:\/\//i.test(raw))scheme='https';else if(/^http:\/\//i.test(raw))scheme='http';else if(location.protocol==='https:'){const h=raw.replace(/\/.*$/,'');scheme=(h===location.host||!/^\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(h))?'https':'http';}else scheme='http';const clean=raw.replace(/^https?:\/\//i,'').replace(/\/.*$/,'');if(!clean||!/^[\w.:[\]-]+$/.test(clean))throw new Error('请填写有效的设备地址');host=clean;}
+export function setHost(value:string){const raw=value.trim();if(/^https:\/\//i.test(raw))scheme='https';else if(/^http:\/\//i.test(raw))scheme='http';else if(location.protocol==='https:'){const h=raw.replace(/\/.*$/,'');scheme=(h===location.host||!/^\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(h))?'https':'http';}else scheme='http';const clean=raw.replace(/^https?:\/\//i,'').replace(/\/+$/,'');if(!clean||!/^[\w.:[\]/%-]+$/.test(clean))throw new Error('请填写有效的设备地址');host=clean;}
 export function getHost(){return host;}
 export function getBaseUrl(){return `${scheme}://${host}`;}
 export function setToken(value:string){token=value;}

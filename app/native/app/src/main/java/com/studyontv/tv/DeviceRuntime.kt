@@ -36,6 +36,7 @@ object DeviceRuntime {
             override fun onActivityDestroyed(activity: android.app.Activity) = Unit
         })
         store = LocalStore(app)
+        CloudCerts.init(app)
         SeedAssets.ensureQuestions(app, store)
         learning = LearningEngine(store)
         server = LanServer(app, store, app.assets).also {
@@ -48,6 +49,8 @@ object DeviceRuntime {
             for (i in 0 until pending.length()) GradingService.enqueue(store, learning, pending.getJSONObject(i).getString("id"))
         }
     }
+
+    fun lanServer(): LanServer? = server
 
     fun connection(context: Context): org.json.JSONObject {
         ensure(context)

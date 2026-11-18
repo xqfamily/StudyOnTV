@@ -53,33 +53,33 @@ object KeepAlive {
     fun brandTip(tv: Boolean): String? {
         val name = "${Build.MANUFACTURER} ${Build.BRAND}".lowercase()
         if (tv) return when {
-            name.contains("tcl") -> "TCL 电视：设置 → 应用 → 题了个题 → 自启动，开启「允许自启动」"
-            name.contains("hisense") || name.contains("vidaa") -> "海信电视：设置 → 应用管理 → 题了个题 → 权限 → 允许自启动"
-            name.contains("skyworth") || name.contains("coocaa") -> "创维 / 酷开：设置 → 应用 → 题了个题 → 自启动权限，设为允许"
+            name.contains("tcl") -> "TCL 电视：设置 → 应用 → 学一会 → 自启动，开启「允许自启动」"
+            name.contains("hisense") || name.contains("vidaa") -> "海信电视：设置 → 应用管理 → 学一会 → 权限 → 允许自启动"
+            name.contains("skyworth") || name.contains("coocaa") -> "创维 / 酷开：设置 → 应用 → 学一会 → 自启动权限，设为允许"
             // #141：HyperOS 电视有的版本把「应用管理」整个去掉了，家长找不到入口
-            name.contains("xiaomi") || name.contains("redmi") -> "小米 / Redmi 电视：设置 → 应用 → 应用管理 → 题了个题，允许自启动，省电策略设为「无限制」。新版系统没有「应用管理」入口时不用强求：本页「管控服务」「开机自启」正常即可，需要跳转时点下面的「打开系统设置」"
-            name.contains("changhong") -> "长虹电视：设置 → 应用管理 → 题了个题 → 允许后台运行"
-            name.contains("huawei") || name.contains("honor") -> "华为 / 荣耀智慧屏：设置 → 应用 → 应用启动管理 → 题了个题 → 手动管理，全部允许"
-            name.contains("sony") -> "索尼电视：设置 → 应用 → 题了个题 → 电池 → 不受限制"
-            name.contains("samsung") -> "三星电视：设置 → 应用 → 题了个题 → 电池 → 不受限制"
-            name.contains("lg") -> "LG 电视：设置 → 常规 → 应用 → 题了个题 → 电池 → 不限制"
-            name.contains("philips") -> "飞利浦电视：设置 → 应用 → 题了个题 → 自启动 / 后台运行，设为允许"
-            name.contains("sharp") -> "夏普电视：设置 → 应用管理 → 题了个题 → 自启动，设为允许"
-            name.contains("konka") -> "康佳电视：设置 → 应用 → 题了个题 → 自启动，设为允许"
-            name.contains("letv") -> "乐视电视：设置 → 应用管理 → 题了个题 → 自启动，设为允许"
+            name.contains("xiaomi") || name.contains("redmi") -> "小米 / Redmi 电视：设置 → 应用 → 应用管理 → 学一会，允许自启动，省电策略设为「无限制」。新版系统没有「应用管理」入口时不用强求：本页「管控服务」「开机自启」正常即可，需要跳转时点下面的「打开系统设置」"
+            name.contains("changhong") -> "长虹电视：设置 → 应用管理 → 学一会 → 允许后台运行"
+            name.contains("huawei") || name.contains("honor") -> "华为 / 荣耀智慧屏：设置 → 应用 → 应用启动管理 → 学一会 → 手动管理，全部允许"
+            name.contains("sony") -> "索尼电视：设置 → 应用 → 学一会 → 电池 → 不受限制"
+            name.contains("samsung") -> "三星电视：设置 → 应用 → 学一会 → 电池 → 不受限制"
+            name.contains("lg") -> "LG 电视：设置 → 常规 → 应用 → 学一会 → 电池 → 不限制"
+            name.contains("philips") -> "飞利浦电视：设置 → 应用 → 学一会 → 自启动 / 后台运行，设为允许"
+            name.contains("sharp") -> "夏普电视：设置 → 应用管理 → 学一会 → 自启动，设为允许"
+            name.contains("konka") -> "康佳电视：设置 → 应用 → 学一会 → 自启动，设为允许"
+            name.contains("letv") -> "乐视电视：设置 → 应用管理 → 学一会 → 自启动，设为允许"
             else -> null
         }
         return when {
             name.contains("xiaomi") || name.contains("redmi") || name.contains("poco") ->
-                "小米 / Redmi / POCO 手机：设置 → 应用设置 → 应用管理 → 题了个题 → 自启动；省电策略 → 无限制"
+                "小米 / Redmi / POCO 手机：设置 → 应用设置 → 应用管理 → 学一会 → 自启动；省电策略 → 无限制"
             name.contains("huawei") || name.contains("honor") ->
-                "华为 / 荣耀手机：设置 → 应用 → 应用启动管理 → 题了个题 → 手动管理，全部允许"
+                "华为 / 荣耀手机：设置 → 应用 → 应用启动管理 → 学一会 → 手动管理，全部允许"
             name.contains("oppo") || name.contains("realme") || name.contains("oneplus") ->
-                "OPPO / realme / 一加：设置 → 应用 → 自启动管理 → 题了个题；电池 → 允许后台活动"
+                "OPPO / realme / 一加：设置 → 应用 → 自启动管理 → 学一会；电池 → 允许后台活动"
             name.contains("vivo") || name.contains("iqoo") ->
-                "vivo / iQOO：设置 → 应用与权限 → 权限管理 → 自启动 → 题了个题"
+                "vivo / iQOO：设置 → 应用与权限 → 权限管理 → 自启动 → 学一会"
             name.contains("samsung") ->
-                "三星手机：设置 → 电池 → 后台使用限制 → 从不休眠的应用，加入题了个题"
+                "三星手机：设置 → 电池 → 后台使用限制 → 从不休眠的应用，加入学一会"
             name.contains("meizu") ->
                 "魅族手机：设置 → 应用管理 → 权限 → 后台管理 → 允许后台运行"
             else -> null

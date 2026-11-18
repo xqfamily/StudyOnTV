@@ -736,11 +736,15 @@
     if (action === 'home') nativeCall('exitToLauncher');
     if (action === 'resume') nativeCall('resumePrevious');
     if (action === 'quiz') { if (state.screen === 'pair') nativeCall('backToQuiz'); else start(); }
+    if (action === 'cloud-pair' && window.SOTV_LESSON) { window.SOTV_LESSON.startCloudPair(); }
   }
   function route() {
     window.clearTimeout(nextTimer); state.busy = false; hideFeedback();
     var hash = location.hash || '#/quiz';
     state.settingsGate = hash.indexOf('reason=settings') >= 0;
+    if (hash.indexOf('#/lesson') === 0 && window.SOTV_LESSON) return window.SOTV_LESSON.openLesson();
+    if (hash.indexOf('#/dictation') === 0 && window.SOTV_LESSON) return window.SOTV_LESSON.openDictation();
+    if (hash.indexOf('#/push-quiz') === 0 && window.SOTV_LESSON) return window.SOTV_LESSON.openPushQuiz();
     if (hash.indexOf('#/pair') === 0) return pair();
     loadState(function (error) {
       if (error) { $('qText').textContent = error; return; }
@@ -788,7 +792,7 @@
     route();
     window.setInterval(function () {
       $('clock').textContent = new Date().toTimeString().slice(0, 5);
-      if ((state.busy && !state.feedback) || state.screen === 'pair') return;
+      if ((window.SOTV_LESSON && window.SOTV_LESSON.isActive()) || (state.busy && !state.feedback) || state.screen === 'pair') return;
       var version = state.config.version, quizGeneration = state.learning.quizGeneration || 0, wasFree = !!state.learning.free;
       loadState(function (error) {
         if (error) return;
@@ -961,11 +965,31 @@
     nativeCall('readInLanguage', [qTextClean, q.language || '']);
   }
   function replayAudio() {
+    if (window.SOTV_LESSON && window.SOTV_LESSON.isActive()) { window.SOTV_LESSON.handleKey('menu'); return; }
     if (!state.round || !state.round.question) return;
     readQuestionStem(state.round.question);
   }
-  window.TV = { move: move, select: function () { activate(); }, replayAudio: replayAudio, back: function () { if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher'); else toast('现在暂不可用'); }, state: state };
-  window.SOTV_RESUME = function () { if (document.readyState === 'complete' && !state.busy && state.screen !== 'pair') route(); };
+  window.TV = {
+    move: function (dir) {
+      if (window.SOTV_LESSON && window.SOTV_LESSON.isActive()) return window.SOTV_LESSON.handleKey(dir);
+      return move(dir);
+    },
+    select: function () {
+      if (window.SOTV_LESSON && window.SOTV_LESSON.isActive()) { window.SOTV_LESSON.handleKey('ok'); return; }
+      activate();
+    },
+    replayAudio: replayAudio,
+    back: function () {
+      if (window.SOTV_LESSON && window.SOTV_LESSON.isActive()) { window.SOTV_LESSON.handleKey('back'); return; }
+      if (!state.learning.reason && (state.learning.remainingSeconds > 0 || state.learning.free)) nativeCall('exitToLauncher');
+      else toast('现在暂不可用');
+    },
+    state: state
+  };
+  window.SOTV_RESUME = function () {
+    if (window.SOTV_LESSON && window.SOTV_LESSON.isActive()) return;
+    if (document.readyState === 'complete' && !state.busy && state.screen !== 'pair') route();
+  };
   window.addEventListener('hashchange', route);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

@@ -4,17 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="theme-color" content="#141414">
-<title>题了个题 · 先学再看</title>
+<title>学一会 · 先学再看</title>
 <link rel="stylesheet" href="assets/css/tv.css">
 <link rel="stylesheet" href="assets/css/features.css">
 </head>
 <body>
 <div class="bg"><div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grain"></div></div>
 <header class="topbar">
-  <div class="brand"><span class="logo"><i></i></span><span class="brand-text">题了个题</span></div>
+  <div class="brand"><span class="logo"><i></i></span><span class="brand-text">学一会</span></div>
   <div class="topright"><span class="pill" id="topPill">正在连接…</span><span class="clock" id="clock"></span></div>
 </header>
 <div class="update-tip" id="updateTip"><span class="update-text" id="updateText"></span><button class="update-btn focusable" id="updateGo" data-action="update-go">更新</button><button class="update-close focusable" id="updateClose" data-action="update-close" aria-label="关闭">×</button></div>
+<div class="cloud-toast-banner" id="cloudToastBanner" role="status" aria-live="polite"></div>
 <main id="stage">
   <section class="screen" id="screen-quiz">
     <div class="quiz-wrap">
@@ -27,6 +28,12 @@
       <div class="quiz-foot"><div class="dots-progress" id="qDots"></div><div class="hint"><span class="kbd">上下左右</span><span class="hint-text">选择</span><span class="kbd">OK</span><span class="hint-text">确认</span><span class="kbd">返回</span><span class="hint-text">回到桌面</span></div></div>
     </div>
   </section>
+  <section class="screen" id="screen-lesson">
+    <div class="lesson-wrap" id="lessonContainer"></div>
+  </section>
+  <section class="screen" id="screen-dictation">
+    <div class="lesson-wrap" id="dictationContainer"></div>
+  </section>
   <section class="screen" id="screen-lock">
     <div class="lock-wrap"><div class="lock-badge" id="lockIcon"></div><h1 class="lock-title" id="lockTitle"></h1><p class="lock-desc" id="lockDesc"></p><div class="lock-actions" id="lockActions"></div><p class="lock-note" id="lockNote"></p></div>
   </section>
@@ -34,13 +41,20 @@
     <div class="pair-wrap">
       <div class="pair-copy">
         <p class="pair-eyebrow">家长管理</p>
-        <h1 class="pair-title">用手机管理这台设备</h1>
-        <ol class="pair-steps">
+        <h1 class="pair-title" id="pairTitle">用手机管理这台设备</h1>
+        <ol class="pair-steps" id="pairSteps">
           <li><b>1</b>手机连接与这台设备相同的 WiFi</li>
           <li><b>2</b>用相机扫描二维码，或在浏览器打开<br><span class="pair-url" id="pairUrl"></span></li>
           <li><b>3</b>输入管理密码，即可设置规则、题库与批改</li>
         </ol>
-        <div class="lock-actions"><button class="btn btn-primary focusable" data-action="quiz">返回答题</button><button class="btn btn-ghost focusable" data-action="permissions">权限设置</button><button class="btn btn-ghost focusable" data-action="password">修改密码</button></div>
+        <div id="cloudPairCodeBox" class="cloud-pair-digits" style="display:none;"></div>
+        <div id="cloudPairStatus" class="cloud-pair-status" style="display:none;"></div>
+        <div class="lock-actions">
+          <button class="btn btn-primary focusable" data-action="cloud-pair" id="btnCloudPair">连接云端（外网扫码）</button>
+          <button class="btn btn-ghost focusable" data-action="quiz">返回学习</button>
+          <button class="btn btn-ghost focusable" data-action="permissions">权限设置</button>
+          <button class="btn btn-ghost focusable" data-action="password">修改密码</button>
+        </div>
       </div>
       <div class="qr-box" id="pairQr"></div>
     </div>
@@ -49,6 +63,7 @@
 <script src="assets/js/qrcode.min.js"></script>
 <script src="assets/js/math.js"></script>
 <script src="assets/js/kid-render.js"></script>
+<script src="assets/js/lesson.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

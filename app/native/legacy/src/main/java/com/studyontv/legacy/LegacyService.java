@@ -195,7 +195,7 @@ public class LegacyService extends Service {
         }
         return new Notification.Builder(this)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle("题了个题 · 旧版管控运行中")
+                .setContentTitle("学一会 · 旧版管控运行中")
                 .setContentText("正在检查前台应用与今日可用时间")
                 .setContentIntent(pending)
                 .setOngoing(true)
@@ -213,7 +213,7 @@ public class LegacyService extends Service {
             }
             return new Notification.Builder(context, CHANNEL)
                     .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                    .setContentTitle("题了个题 · 旧版管控运行中")
+                    .setContentTitle("学一会 · 旧版管控运行中")
                     .setContentText("正在检查前台应用与今日可用时间")
                     .setContentIntent(pending)
                     .setOngoing(true)

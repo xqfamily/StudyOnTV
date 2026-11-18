@@ -64,7 +64,7 @@ Home Assistant：
 # configuration.yaml
 sensor:
   - platform: rest
-    name: 题了个题
+    name: 学一会
     resource: http://192.168.1.20:8099/api/state
     headers:
       Authorization: !secret studyontv_token

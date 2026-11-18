@@ -11,7 +11,7 @@ let device:any={name:'客厅电视 · 开发预览',flavor:'tv',version:'0.3.10'
  monitor:{service:true,overlay:true,usage:true,accessibility:true,accessibilityEnabled:true,notificationListener:true,notificationListenerConnected:true,gate:false,lastTickSeconds:1,lastError:''},
  autostart:{known:true,ok:true,pending:false,via:'boot',startedAfterSeconds:12,bootBroadcast:true,uptimeMinutes:320,accessibility:true},
  keepalive:{ignoringBattery:true,notifications:true,usbDebugging:false,developerOptions:false,sdk:34,manufacturer:'Xiaomi',brand:'Xiaomi',model:'Mi TV 6',android:'12',
-  brandTip:'小米电视：设置 → 应用 → 应用管理 → 题了个题 → 自启动，开启；省电策略设为「无限制」'}};
+  brandTip:'小米电视：设置 → 应用 → 应用管理 → 学一会 → 自启动，开启；省电策略设为「无限制」'}};
 let grading:any={mode:'parent',passScore:60,provider:'deepseek',endpoint:'https://api.deepseek.com/v1',model:'deepseek-flash',hasKey:false,providers:builtinProviders};
 let integration:any={enabled:false,read:true,control:false,hasToken:false};
 let speech:any={mode:'system',autoRead:false,readLanguage:'',azureKeySet:false,aliyunSecretSet:false};

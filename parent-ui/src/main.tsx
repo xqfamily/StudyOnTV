@@ -16,7 +16,7 @@ import {InputGroup,InputGroupAddon,InputGroupButton,InputGroupInput} from '@/com
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Sidebar,SidebarContent,SidebarFooter,SidebarGroup,SidebarGroupLabel,SidebarHeader,SidebarInset,SidebarMenu,SidebarMenuBadge,SidebarMenuButton,SidebarMenuItem,SidebarProvider,SidebarRail,SidebarTrigger} from '@/components/ui/sidebar';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,DropdownMenuRadioGroup,DropdownMenuRadioItem} from '@/components/ui/dropdown-menu';
-import {api,getHost,setHost,setToken,enablePreview} from './api';
+import {api,getHost,getTunnelDeviceId,setHost,setToken,enablePreview} from './api';
 import RulesPage from './RulesPage';
 import RemotePage from './RemotePage';
 import QuestionBank from './QuestionBank';
@@ -44,12 +44,12 @@ const pages:{id:PageId,title:string,short:string,icon:any,description:string}[]=
 type SectionId='device'|'children'|'keepalive'|'display'|'update'|'security'|'integration'|'logs'|'ai';
 const sections:{id:SectionId,title:string,icon:any}[]=[{id:'device',title:'设备',icon:Tv},{id:'children',title:'孩子',icon:Users},{id:'keepalive',title:'后台保活',icon:ShieldCheck},{id:'display',title:'界面与反馈',icon:Palette},{id:'update',title:'版本更新',icon:CloudDownload},{id:'security',title:'管理密码',icon:KeyRound},{id:'integration',title:'家庭自动化',icon:RadioTower},{id:'logs',title:'诊断日志',icon:FileText},{id:'ai',title:'模型 API（高级）',icon:Bot}];
 
-/* ---------- 记住登录：保存在本机浏览器，30 天有效；修改管理密码或断开连接后失效 ---------- */
-const SESSION_KEY='sotv-panel-session';
+/* ---------- 记住登录：保存在本机浏览器，30 天有效；按 deviceId 分键，修改管理密码或断开连接后失效 ---------- */
+const SESSION_KEY='sotv-panel-session:'+(getTunnelDeviceId()||'lan');
 function saveSession(host:string,token:string){try{localStorage.setItem(SESSION_KEY,JSON.stringify({host,token}));}catch{}}
 function forgetSession(){try{localStorage.removeItem(SESSION_KEY);}catch{}}
-function restoreSession():boolean{try{const v=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(!v?.token||!v?.host)return false;// 面板由设备自己提供时，以当前地址为准（设备 IP 可能变了）
- setHost(location.protocol.startsWith('http')&&location.host?location.host:v.host);setToken(v.token);return true;}catch{return false;}}
+function restoreSession():boolean{try{const v=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(!v?.token||!v?.host)return false;
+ setHost(location.protocol.startsWith('http')&&location.host?getHost():v.host);setToken(v.token);return true;}catch{return false;}}
 
 /* ---------- 主题：浅色 / 深色 / 跟随系统（参考 shadcn-admin ThemeProvider） ---------- */
 type Theme='light'|'dark'|'system';
@@ -69,7 +69,7 @@ function Login({onLogin,theme}:{onLogin:()=>void,theme:ReturnType<typeof useThem
  async function submit(e:any){e.preventDefault();if(busy)return;setError('');if(!accepted)return setError('请先同意用户协议和隐私政策');if(secret.length<6)return setError('请输入管理密码');setBusy(true);try{setHost(host);const result=await api('/api/auth','POST',{passphrase:secret,remember:true});setToken(result.token);saveSession(getHost(),result.token);setSecret('');onLogin();}catch(e:any){setError(e.message==='Failed to fetch'?'无法连接设备，请检查设备地址和 WiFi':e.message);}finally{setBusy(false);}}
  return <main className="relative min-h-svh overflow-hidden bg-background">
   <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_oklab,var(--border)_45%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--border)_45%,transparent)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]"/>
-  <header className="relative z-10 mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 md:px-6"><div className="flex items-center gap-2 text-sm font-semibold"><span className="brand-icon size-9 rounded-xl"><Leaf className="size-4"/></span><span>题了个题</span></div><ThemeSwitch {...theme}/></header>
+  <header className="relative z-10 mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 md:px-6"><div className="flex items-center gap-2 text-sm font-semibold"><span className="brand-icon size-9 rounded-xl"><Leaf className="size-4"/></span><span>学一会</span></div><ThemeSwitch {...theme}/></header>
   <div className="relative z-10 mx-auto grid min-h-[calc(100svh-5rem)] w-full max-w-6xl items-center gap-16 px-4 pb-16 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-6">
    <section className="hidden max-w-xl lg:block">
     <Badge variant="outline" className="border-border/70 bg-background/60 px-3 py-1 text-xs font-normal text-muted-foreground">家长控制台</Badge>
@@ -128,7 +128,7 @@ function Login({onLogin,theme}:{onLogin:()=>void,theme:ReturnType<typeof useThem
 function AppSidebar({page,go,pending,device,logout}:{page:PageId,go:(p:PageId)=>void,pending:number,device:any,logout:()=>void}){
  const groups:[string,PageId[]][]=[['学习',['remote','rules','bank','grading','records']],['系统',['settings']]];
  return <Sidebar collapsible="icon" variant="sidebar">
-  <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" onClick={()=>go('remote')} tooltip="题了个题"><span className="brand-icon size-8 rounded-lg"><Leaf className="size-4"/></span><div className="grid flex-1 text-start text-sm leading-tight"><span className="truncate font-semibold">题了个题</span><span className="truncate text-xs text-muted-foreground">家长管理</span></div></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
+  <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" onClick={()=>go('remote')} tooltip="学一会"><span className="brand-icon size-8 rounded-lg"><Leaf className="size-4"/></span><div className="grid flex-1 text-start text-sm leading-tight"><span className="truncate font-semibold">学一会</span><span className="truncate text-xs text-muted-foreground">家长管理</span></div></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
   <SidebarContent>{groups.map(([label,ids])=><SidebarGroup key={label}><SidebarGroupLabel>{label}</SidebarGroupLabel><SidebarMenu>{ids.map(id=>{const p=pages.find(x=>x.id===id)!;return <SidebarMenuItem key={id}><SidebarMenuButton isActive={page===id} tooltip={p.title} onClick={()=>go(id)}><p.icon/><span>{p.title}</span></SidebarMenuButton>{id==='grading'&&pending>0&&<SidebarMenuBadge>{pending}</SidebarMenuBadge>}</SidebarMenuItem>;})}</SidebarMenu></SidebarGroup>)}</SidebarContent>
   <SidebarFooter><SidebarMenu><SidebarMenuItem><DeviceMenu device={device} logout={logout} side="right"><SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent"><span className="flex size-8 items-center justify-center rounded-lg bg-secondary"><Tv className="size-4"/></span><div className="grid flex-1 text-start text-sm leading-tight"><span className="truncate font-semibold">{device?.name||'被控设备'}</span><span className="truncate text-xs text-muted-foreground"><span className="me-1.5 inline-block size-1.5 rounded-full bg-emerald-500"/>{getHost()}</span></div><ChevronsUpDown className="ms-auto size-4"/></SidebarMenuButton></DeviceMenu></SidebarMenuItem></SidebarMenu></SidebarFooter>
   <SidebarRail/>
@@ -164,7 +164,8 @@ function Dashboard({sessionId,logout,theme}:{sessionId:number,logout:()=>void,th
    <Header title={page==='remote'?(device.data?.name||'我的设备'):current.title}><Badge variant="outline" className="me-1 hidden sm:flex"><span className="me-1.5 size-1.5 rounded-full bg-emerald-500"/>已连接</Badge><ThemeSwitch {...theme}/><div className="md:hidden"><DeviceMenu device={device.data} logout={logout}><Button variant="ghost" size="icon" className="rounded-full" aria-label="设备与连接"><Tv/></Button></DeviceMenu></div></Header>
    <main className="page-content px-4 pt-2 md:px-6 md:pt-4 w-full max-w-6xl mx-auto">
     <div className={page==='remote'?'hidden':'mb-5 hidden items-end justify-between gap-4 border-b pb-4 md:flex'}><h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1><p className="shrink-0 text-xs text-muted-foreground">{current.description}</p></div>
-    {state.error&&<Alert variant="destructive" className="mb-4"><AlertCircle/><AlertDescription>暂未能刷新数据，请确认设备仍在同一局域网。</AlertDescription></Alert>}
+    {state.data?.offline&&<Alert className="mb-4"><AlertCircle/><AlertDescription>🟡 电视当前离线，以下为缓存快照；已记住密码的写操作将入队等电视开机后校验执行。</AlertDescription></Alert>}
+    {state.error&&<Alert variant="destructive" className="mb-4"><AlertCircle/><AlertDescription>暂未能刷新数据，请确认设备在线或检查网络。</AlertDescription></Alert>}
     {page==='remote'&&<RemotePage state={state.data} sessionId={sessionId}/>}
     {page==='rules'&&<RulesPage state={state.data} sessionId={sessionId}/>}
     {page==='bank'&&<QuestionBank sessionId={sessionId}/>}

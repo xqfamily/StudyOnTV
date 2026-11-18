@@ -115,8 +115,8 @@ export function keepAliveSummary(device:any):KeepAliveSummary{
 export function brandTip(device:any):string{
  if(device?.keepalive?.brandTip)return device.keepalive.brandTip;
  return device?.flavor==='tv'
-  ?'在电视的「设置 → 应用管理」里找到「题了个题」，允许自启动，再允许后台运行。不同品牌的入口名称略有不同。'
-  :'在手机的「设置 → 应用管理」里找到「题了个题」，允许自启动和后台活动，并把电池策略设为「不限制」。';
+  ?'在电视的「设置 → 应用管理」里找到「学一会」，允许自启动，再允许后台运行。不同品牌的入口名称略有不同。'
+  :'在手机的「设置 → 应用管理」里找到「学一会」，允许自启动和后台活动，并把电池策略设为「不限制」。';
 }
 
 export function debugStatus(device:any):DebugStatus{

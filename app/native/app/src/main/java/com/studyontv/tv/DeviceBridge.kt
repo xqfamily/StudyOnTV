@@ -38,7 +38,7 @@ open class DeviceBridge(protected val activity: Activity, private val connection
         if (!connectionAllowed) return false
         return try {
             val manager = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return false
-            manager.setPrimaryClip(android.content.ClipData.newPlainText("题了个题", value))
+            manager.setPrimaryClip(android.content.ClipData.newPlainText("学一会", value))
             true
         } catch (e: Exception) {
             Diag.warn("UI", "copyText failed: ${e.message}")

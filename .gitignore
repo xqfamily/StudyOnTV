@@ -54,4 +54,5 @@ studyontv-release.jks
 # Local agent worktrees / scratch output
 /.claude/
 /tmp-check/
+/build-apk/
 

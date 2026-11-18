@@ -1,6 +1,6 @@
 # 题库格式参考
 
-给「题了个题」出题的完整格式说明，供家长和其他 AI 参考。示例文件见 [data/banks/open-play.json](../data/banks/open-play.json)，包含 5 种题型、8 个学科、不同难度的 24 道题。
+给「学一会」出题的完整格式说明，供家长和其他 AI 参考。示例文件见 [data/banks/open-play.json](../data/banks/open-play.json)，包含 5 种题型、8 个学科、不同难度的 24 道题。
 
 ## 最小示例
 

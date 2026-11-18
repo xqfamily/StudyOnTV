@@ -63,11 +63,13 @@ class OnboardingActivity : Activity() {
         status.addView(statusCopy, LinearLayout.LayoutParams(0, -2, 1f))
         intro.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(24) })
         val actions = LinearLayout(this).apply { orientation = if (tv) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL }
-        val manage = TvUi.button(this, "完成，进入家长设置", true) { complete(true) }
+        val oneClickAdb = TvUi.button(this, "⚡ 本机 ADB 一键授权（推荐电视）", true) { showOneClickAdbDialog() }
+        val manage = TvUi.button(this, "完成，进入家长设置 / 扫码配对", false) { complete(true) }
         val learn = TvUi.button(this, "先开始学习") { complete(false) }
         if (tv) {
-            actions.addView(manage, LinearLayout.LayoutParams(-1, dp(52)))
-            actions.addView(learn, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(12) })
+            actions.addView(oneClickAdb, LinearLayout.LayoutParams(-1, dp(52)))
+            actions.addView(manage, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(10) })
+            actions.addView(learn, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(10) })
         } else {
             actions.orientation = LinearLayout.VERTICAL
             actions.addView(manage, LinearLayout.LayoutParams(-1, dp(52)))
@@ -208,17 +210,53 @@ class OnboardingActivity : Activity() {
         finish()
     }
 
+    private fun showOneClickAdbDialog() {
+        val cmds = LocalAdbClient.buildGrantCommands(packageName)
+        val msg = "前提：请先在电视「设置 → 开发者选项」开启「ADB 调试 / USB 调试」。\n\n将仅执行以下固定授权命令：\n" +
+            cmds.joinToString("\n• ", prefix = "• ") +
+            "\n\n点击确定后，系统若弹出「允许 USB 调试吗？」，请勾选「一律允许」并确认。"
+        android.app.AlertDialog.Builder(this)
+            .setTitle("⚡ 本机 ADB 一键授权")
+            .setMessage(msg)
+            .setPositiveButton("立即执行") { _, _ ->
+                Toast.makeText(this, "正在连接本机 5555 端口执行授权…", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val res = LocalAdbClient.executeGrantCommands(this)
+                    runOnUiThread {
+                        if (isFinishing) return@runOnUiThread
+                        OverlayAccess.invalidate()
+                        refresh()
+                        if (res.ok) {
+                            android.app.AlertDialog.Builder(this)
+                                .setTitle("✅ 一键授权执行完成")
+                                .setMessage("已授予悬浮窗、无障碍、后台白名单等权限（可在右侧查看实时状态）。\n\n安全提示：建议现在回到电视系统设置关闭「ADB 调试」，已授予的权限不会丢失。")
+                                .setPositiveButton("知道了", null)
+                                .show()
+                        } else {
+                            android.app.AlertDialog.Builder(this)
+                                .setTitle("未能完成本机 ADB 授权")
+                                .setMessage("${res.error}\n\n如这台电视未开启 5555 网络调试，可仅使用「学习档」（推屏教学/听写/小测无需此权限），或用手机「甲壳虫 ADB 助手」连接本机执行上述命令。")
+                                .setPositiveButton("确定", null)
+                                .show()
+                        }
+                    }
+                }.start()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun refresh() {
         if (!::modeTitle.isInitialized) return
         val p = TvUi.palette(this)
         items.forEach { val on = it.enabled(); it.row.setStatus(if (on) "已开启" else if (it.optional) "未开启" else "去开启", on) }
         val overlay = GateOverlay.canDraw(this)
+        val a11y = WatchAccessibilityService.connected
         val usage = Foreground.hasUsageAccess(this)
         val (title, description, ready) = when {
-            overlay && (WatchAccessibilityService.connected || usage) -> Triple("已就绪", "到时间会自动显示学习页，计时准确", true)
-            overlay -> Triple("基本可用", "离开学习页后按亮屏时间计时", true)
-            usage -> Triple("可以记录使用时间", "开启悬浮窗后，才能在到时间时显示学习页", false)
-            else -> Triple("尚未开启", "建议至少开启悬浮窗", false)
+            a11y || (overlay && usage) -> Triple("管控档 + 学习档已就绪", "看电视计时、锁屏答题、推屏教学全可用", true)
+            overlay -> Triple("管控档基本可用", "离开学习页按亮屏计时，建议再开无障碍/使用情况", true)
+            else -> Triple("当前为「学习档」", "推屏教学、听写、小测已可用；如需锁屏管控请点「一键授权」或开启无障碍/悬浮窗", false)
         }
         modeTitle.text = title; modeDescription.text = description
         modeDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (ready) p.ok else p.warn) }

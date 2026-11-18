@@ -26,7 +26,7 @@ function uptime(minutes:number){
 }
 
 function selfCheckText(device:any){
- const lines=[`题了个题 · 后台保活自检`,`设备：${device.name||'未命名'}（${device.flavor==='tv'?'电视版':'手机 / 平板版'} v${device.version}）`];
+ const lines=[`学一会 · 后台保活自检`,`设备：${device.name||'未命名'}（${device.flavor==='tv'?'电视版':'手机 / 平板版'} v${device.version}）`];
  if(device.keepalive)lines.push(`型号：${[device.keepalive.manufacturer,device.keepalive.model].filter(Boolean).join(' ')||'未知'} · Android ${device.keepalive.android||'未知'}`);
  lines.push(`检查结果：${keepAliveSummary(device).text}`);
  for(const check of keepAliveChecks(device))lines.push(`- ${check.title}：${check.detail}`);
